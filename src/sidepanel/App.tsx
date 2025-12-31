@@ -360,7 +360,7 @@ export default function App() {
                                             transition={{ duration: 0.8, ease: sexyEase }}
                                         >
                                             <h2 className="text-[12px] text-muted mb-4">
-                                                Tech Stack
+                                                Tech
                                             </h2>
                                             <TechSection tech={data.tech} />
                                         </motion.section>
