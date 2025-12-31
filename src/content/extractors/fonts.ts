@@ -9,6 +9,7 @@ interface FontDetails {
     sizes: string[];
     source: 'google' | 'adobe' | 'custom' | 'system';
     url?: string;
+    isMono: boolean;
 }
 
 export async function extractFonts(): Promise<FontInfo[]> {
@@ -40,7 +41,8 @@ function scanComputedFonts(fontMap: Map<string, FontDetails>) {
 
     sampled.forEach(el => {
         const computed = getComputedStyle(el);
-        const family = computed.fontFamily.split(',')[0].replace(/["']/g, '').trim();
+        const rawFamily = computed.fontFamily;
+        const family = rawFamily.split(',')[0].replace(/["']/g, '').trim();
 
         if (!family) return;
 
@@ -52,6 +54,7 @@ function scanComputedFonts(fontMap: Map<string, FontDetails>) {
             lineHeight: [],
             sizes: [],
             source: 'custom' as const,
+            isMono: rawFamily.toLowerCase().includes('monospace'),
         };
 
         const weight = computed.fontWeight;
@@ -100,6 +103,14 @@ function detectAdobeFonts(fontMap: Map<string, FontDetails>) {
     }
 }
 
+const PANGRAMS = [
+    "Sphinx of black quartz, judge my vow",
+    "How quickly daft jumping zebras vex",
+    "The five boxing wizards jump quickly",
+    "Pack my box with five dozen liquor jugs",
+    "Quick wafting zephyrs vex bold Jim"
+];
+
 async function generatePreview(font: FontDetails): Promise<FontPreview> {
     // Google Fonts — use import URL
     if (font.source === 'google') {
@@ -126,9 +137,11 @@ async function generatePreview(font: FontDetails): Promise<FontPreview> {
     }
 
     // Fallback: render via canvas
+    const previews = await Promise.all(PANGRAMS.map(p => renderFontToCanvas(font.family, p, font.isMono)));
     return {
         method: 'canvas',
-        data: renderFontToCanvas(font.family),
+        data: previews[0],
+        previews,
     };
 }
 
@@ -151,31 +164,63 @@ function findFontUrl(family: string): string | null {
     return null;
 }
 
-function renderFontToCanvas(family: string): string {
+async function renderFontToCanvas(family: string, text: string, isMono: boolean): Promise<string> {
+    // Attempt to ensure font is loaded
+    try {
+        await document.fonts.load(`16px "${family}"`);
+    } catch (e) { }
+
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d')!;
-    const text = 'Sphinx of black quartz, judge my vow';
-    const size = 32;
+    const size = 64;
+    const maxWidth = 800;
 
-    ctx.font = `${size}px "${family}"`;
-    const metrics = ctx.measureText(text);
+    // Build robust font string
+    const systemKeywords = ['-apple-system', 'BlinkMacSystemFont', 'system-ui', 'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy'];
+    const isSystemKey = systemKeywords.includes(family);
 
-    canvas.width = metrics.width + 20;
-    canvas.height = size * 1.5;
+    // Non-system keywords must be quoted
+    const familyQuery = isSystemKey ? family : `"${family}"`;
+    const fallback = isMono ? 'monospace' : 'sans-serif';
+    const fontString = `${size}px ${familyQuery}, ${fallback}`;
 
-    ctx.font = `${size}px "${family}"`;
-    ctx.fillStyle = getComputedStyle(document.body).color || '#000';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text, 10, canvas.height / 2);
+    ctx.font = fontString;
+
+    const words = text.split(' ');
+    const lines: string[] = [];
+    let currentLine = words[0];
+
+    for (let i = 1; i < words.length; i++) {
+        const word = words[i];
+        const width = ctx.measureText(currentLine + " " + word).width;
+        if (width < maxWidth) {
+            currentLine += " " + word;
+        } else {
+            lines.push(currentLine);
+            currentLine = word;
+        }
+    }
+    lines.push(currentLine);
+
+    canvas.width = maxWidth;
+    canvas.height = lines.length * size * 1.2 + 20;
+
+    // Reset context properties after resize
+    ctx.font = fontString;
+    ctx.fillStyle = '#000000';
+    ctx.textBaseline = 'top';
+
+    lines.forEach((line, i) => {
+        ctx.fillText(line, 0, i * size * 1.2 + 10);
+    });
 
     return canvas.toDataURL();
 }
 
 const SYSTEM_FONTS = [
-    'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI',
-    'Roboto', 'Helvetica', 'Arial', 'sans-serif', 'serif', 'monospace',
+    'sans-serif', 'serif', 'monospace',
 ];
 
 function isSystemFont(family: string): boolean {
-    return SYSTEM_FONTS.some(f => family.toLowerCase().includes(f.toLowerCase()));
+    return SYSTEM_FONTS.includes(family.toLowerCase());
 }

@@ -27,7 +27,7 @@ export function InspectedElementCard({ element, loading, onClose }: Props) {
                 </span>
                 <button
                     onClick={onClose}
-                    className="p-1 text-muted hover:text-fg transition-colors"
+                    className="p-1 text-fg hover:opacity-70 transition-all"
                 >
                     <IconClose />
                 </button>

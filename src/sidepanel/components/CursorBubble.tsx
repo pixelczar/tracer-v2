@@ -29,7 +29,7 @@ export function CursorBubble({ message, visible }: Props) {
         <AnimatePresence>
             {visible && (
                 <motion.div
-                    className="fixed top-0 left-0 pointer-events-none z-[9999] bg-fg text-bg px-2.5 py-1 text-2xs font-mono rounded-full"
+                    className="fixed top-0 left-0 pointer-events-none z-[9999] bg-[#f0f0f0] text-[#0a0a0a] px-2.5 py-1 text-2xs font-mono rounded-full shadow-sm border border-black/5"
                     style={{ x, y }}
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}

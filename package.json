@@ -8,7 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "geist": "^1.5.1",
+    "@fontsource/geist-sans": "^5.2.5",
     "motion": "^11.15.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

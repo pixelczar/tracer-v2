@@ -12,10 +12,10 @@
   }
 
   [data-theme="dark"] {
-    --bg: #0b1117;
+    --bg: #1c1f22;
     --fg: #f0f0f0;
-    --muted: #404f73;
-    --faint: #1a1a1a;
+    --muted: #656e84;
+    --faint: #27313a;
     --subtle: #111;
   }
 
@@ -28,7 +28,32 @@
 
   body {
     @apply bg-bg text-fg text-sm leading-relaxed;
-    font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: 'Geist Sans', sans-serif;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.2);
+    @apply rounded-full transition-colors cursor-pointer;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(128, 128, 128, 0.4);
+  }
+
+  /* Support for Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(128, 128, 128, 0.2) transparent;
   }
 
   * {

@@ -23,16 +23,16 @@ function createCursorBubble() {
     background: #0a0a0a;
     color: #f0f0f0;
     padding: 6px 12px;
-    font-family: 'IBM Plex Mono', 'Geist Sans', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    border-radius: 4px;
+    border-radius: 9999px;
     opacity: 0;
     white-space: nowrap;
-    transition: opacity 0.15s ease;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transition: opacity 0.1s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.05);
   `;
     document.body.appendChild(cursorBubble);
     console.log('[Tracer] Cursor bubble created');
@@ -45,14 +45,14 @@ function createCursorBubble() {
 
 function startCursorAnimation() {
     const animate = () => {
-        // Smooth lerp interpolation
-        const lerp = 0.12;
+        // Smooth lerp interpolation - faster to reduce lag
+        const lerp = 0.5;
         currentX += (targetX - currentX) * lerp;
         currentY += (targetY - currentY) * lerp;
 
         if (cursorBubble) {
-            cursorBubble.style.left = `${currentX + 20}px`;
-            cursorBubble.style.top = `${currentY + 20}px`;
+            cursorBubble.style.left = `${currentX + 12}px`;
+            cursorBubble.style.top = `${currentY + 12}px`;
         }
 
         animationFrame = requestAnimationFrame(animate);
@@ -88,18 +88,6 @@ function updateCursorMessage(message: string) {
     }
 }
 
-function destroyCursorBubble() {
-    if (animationFrame) {
-        cancelAnimationFrame(animationFrame);
-        animationFrame = null;
-    }
-    if (cursorBubble && cursorBubble.parentNode) {
-        cursorBubble.parentNode.removeChild(cursorBubble);
-        cursorBubble = null;
-    }
-    document.removeEventListener('mousemove', updateCursorPosition);
-}
-
 // Message listener
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     console.log('[Tracer] Content script received message:', message.type);
@@ -112,7 +100,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
         case 'EXTRACT':
             showCursorBubble('Scanning');
-            runFullExtraction().then((result) => {
+            runFullExtraction(message.payload).then((result) => {
                 updateCursorMessage('Complete');
                 setTimeout(() => hideCursorBubble(), 1000);
                 sendResponse(result);
@@ -170,7 +158,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     }
 });
 
-async function runFullExtraction() {
+async function runFullExtraction(payload: any = {}) {
     console.log('[Tracer] Running full extraction');
 
     chrome.runtime.sendMessage({ type: 'SCAN_PROGRESS', payload: { status: 'Analyzing Colors' } });
@@ -180,7 +168,11 @@ async function runFullExtraction() {
     const fonts = await extractFonts();
 
     chrome.runtime.sendMessage({ type: 'SCAN_PROGRESS', payload: { status: 'Detecting Tech' } });
-    const tech = await extractTech();
+    const tech = await extractTech({
+        headers: payload.headers,
+        mainWorldGlobals: payload.mainWorldGlobals,
+        mainWorldVersions: payload.mainWorldVersions
+    });
 
     console.log('[Tracer] Extraction complete:', { colors: colors.length, fonts: fonts.length, tech: tech.length });
 
@@ -204,7 +196,10 @@ function getFavicon(): string | undefined {
 }
 
 function getOGImage(): string | undefined {
-    const meta = document.querySelector<HTMLMetaElement>('meta[property="og:image"]');
+    const meta = document.querySelector<HTMLMetaElement>('meta[property="og:image"]') ||
+        document.querySelector<HTMLMetaElement>('meta[name="og:image"]') ||
+        document.querySelector<HTMLMetaElement>('meta[name="twitter:image"]') ||
+        document.querySelector<HTMLMetaElement>('meta[property="twitter:image"]');
     return meta?.content;
 }
 
