@@ -11,9 +11,9 @@ export async function extractColors(): Promise<ColorInfo[]> {
 }
 
 function extractFromComputedStyles(colorMap: Map<string, number>) {
-    // Scan more elements to ensure we catch smaller accent buttons
+    // Scan more elements to ensure we catch smaller accent buttons, but limit for performance
     const elements = document.querySelectorAll('body, body *');
-    const sampled = Array.from(elements);
+    const sampled = Array.from(elements).slice(0, 3000);
 
     sampled.forEach(el => {
         const rect = el.getBoundingClientRect();

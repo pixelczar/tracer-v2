@@ -54,10 +54,10 @@ export function TechSection({ tech }: Props) {
                 <motion.div
                     key={t.name}
                     variants={{
-                        hidden: { opacity: 0, x: -8 },
-                        show: { opacity: 1, x: 0 }
+                        hidden: { opacity: 0, y: 6 },
+                        show: { opacity: 1, y: 0 }
                     }}
-                    transition={{ duration: 0.7, ease: sexyEase }}
+                    transition={{ duration: 0.6, ease: sexyEase }}
                 >
                     <TechItem tech={t} />
                 </motion.div>

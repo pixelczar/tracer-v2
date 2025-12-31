@@ -18,15 +18,31 @@ export function DecryptedText({
     onComplete
 }: DecryptedTextProps) {
     const [displayText, setDisplayText] = useState('');
+    const lastAnimatedText = useRef('');
     const intervalRef = useRef<number | null>(null);
 
+    const onCompleteRef = useRef(onComplete);
     useEffect(() => {
+        onCompleteRef.current = onComplete;
+    }, [onComplete]);
+
+    useEffect(() => {
+        if (!text || text === lastAnimatedText.current) return;
+        lastAnimatedText.current = text;
+
         let currentIteration = 0;
-
-        // Safety check for empty or non-string input
-        if (!text) return;
-
         if (intervalRef.current) window.clearInterval(intervalRef.current);
+
+        // Set initial random state immediately to avoid blank frames
+        setDisplayText(
+            text
+                .split('')
+                .map((char) => {
+                    if (char === ' ') return ' ';
+                    return characters[Math.floor(Math.random() * characters.length)];
+                })
+                .join('')
+        );
 
         intervalRef.current = window.setInterval(() => {
             setDisplayText(
@@ -34,11 +50,9 @@ export function DecryptedText({
                     .split('')
                     .map((char, index) => {
                         if (char === ' ') return ' ';
-                        // Reveal actual character after enough iterations
                         if (currentIteration > index * 2 + maxIterations) {
                             return text[index];
                         }
-                        // Otherwise show random scramble character
                         return characters[Math.floor(Math.random() * characters.length)];
                     })
                     .join('')
@@ -49,19 +63,19 @@ export function DecryptedText({
             if (currentIteration >= text.length * 2 + maxIterations) {
                 if (intervalRef.current) window.clearInterval(intervalRef.current);
                 setDisplayText(text);
-                if (onComplete) onComplete();
+                if (onCompleteRef.current) onCompleteRef.current();
             }
         }, speed);
 
         return () => {
             if (intervalRef.current) window.clearInterval(intervalRef.current);
         };
-    }, [text, speed, maxIterations, onComplete]);
+    }, [text, speed, maxIterations]);
 
     return (
-        <span className={`font-mono text-sm uppercase flex items-center gap-0.5 ${className}`}>
+        <span className={`font-mono font-normal text-sm uppercase flex items-center gap-0.5 ${className}`}>
             <span>{displayText}</span>
-            <span className="w-[6px] h-[1.1em] bg-accent/80 animate-pulse" />
+            <span className="w-[6px] h-[1.1em] bg-accent/80 animate-blink" />
         </span>
     );
 }

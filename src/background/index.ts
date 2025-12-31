@@ -32,15 +32,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     if (message.type === 'START_SCAN' && tabId) {
         handleScan(tabId);
+        sendResponse({ ok: true });
     } else if (message.type === 'START_INSPECT' && tabId) {
         handleInspect(tabId);
+        sendResponse({ ok: true });
     } else if (message.type === 'STOP_INSPECT' && tabId) {
         handleStopInspect(tabId);
+        sendResponse({ ok: true });
     } else if (message.type === 'CAPTURE_ELEMENT' && tabId) {
         handleCapture(tabId, message.rect).then(sendResponse);
         return true;
     }
-    return true;
+    return false;
 });
 
 // Detect Main World results (Bypasses Content Script CSP)
@@ -178,6 +181,11 @@ async function handleScan(tabId: number) {
             chrome.runtime.sendMessage({
                 type: 'SCAN_COMPLETE',
                 payload: response,
+            });
+        } else {
+            chrome.runtime.sendMessage({
+                type: 'SCAN_ERROR',
+                payload: { error: 'Failed to extract page data.' },
             });
         }
     });

@@ -54,6 +54,7 @@ export function TypographySection({ fonts }: Props) {
 
 function FontItem({ font, index, globalPangramIndex }: { font: FontInfo; index: number; globalPangramIndex: number }) {
     const [pangramIndex, setPangramIndex] = useState(globalPangramIndex);
+    const [activeWeight, setActiveWeight] = useState(font.weights[0]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -63,16 +64,23 @@ function FontItem({ font, index, globalPangramIndex }: { font: FontInfo; index: 
     }, [globalPangramIndex, index]);
 
     const currentPangram = PANGRAMS[pangramIndex];
-    const canvasPreviews = font.preview.previews || [font.preview.data];
-    const currentCanvasPreview = canvasPreviews[pangramIndex % canvasPreviews.length];
+
+    // Determine the source for the current specimen
+    let specimenSrc = '';
+    if (font.preview.method === 'canvas' && font.preview.weightPreviews) {
+        specimenSrc = font.preview.weightPreviews[activeWeight]?.[pangramIndex % (font.preview.weightPreviews[activeWeight]?.length || 1)] || '';
+    } else if (font.preview.method === 'canvas') {
+        const previews = font.preview.previews || [font.preview.data];
+        specimenSrc = previews[pangramIndex % previews.length];
+    }
 
     return (
         <motion.div
             variants={{
-                hidden: { opacity: 0, y: 12 },
+                hidden: { opacity: 0, y: 6 },
                 show: { opacity: 1, y: 0 }
             }}
-            transition={{ duration: 0.8, ease: sexyEase }}
+            transition={{ duration: 0.7, ease: sexyEase }}
             className="flex flex-col gap-3"
         >
             {/* Header */}
@@ -80,25 +88,46 @@ function FontItem({ font, index, globalPangramIndex }: { font: FontInfo; index: 
                 <span className="flex items-center gap-1 font-semibold text-[13px]">
                     {font.family}
                 </span>
-                <span className="text-[11px] font-mono text-muted">
-                    {font.weights.join(' · ')}
-                </span>
+                <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
+                    {font.weights.map((w, i) => (
+                        <div key={w} className="flex items-center gap-1">
+                            <button
+                                onClick={() => setActiveWeight(w)}
+                                className={`
+                                    text-[10px] font-mono transition-all duration-200 px-0.5
+                                    ${activeWeight === w
+                                        ? 'text-white font-bold'
+                                        : 'text-muted hover:text-accent'
+                                    }
+                                `}
+                            >
+                                {w}
+                            </button>
+                            {i < font.weights.length - 1 && (
+                                <span className="text-muted text-[9px] font-mono">/</span>
+                            )}
+                        </div>
+                    ))}
+                </div>
             </div>
 
-            {/* Specimen */}
+            {/* Specimen - Smoother easing, fade out down, fade in up */}
             <div className="py-4 border-b border-faint overflow-hidden min-h-[90px] relative">
-                <AnimatePresence mode="wait">
+                <AnimatePresence mode="wait" initial={false}>
                     <motion.div
-                        key={pangramIndex}
-                        initial={{ opacity: 0, y: 4 }}
+                        key={`${pangramIndex}-${activeWeight}`}
+                        initial={{ opacity: 0, y: -8 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 1, y: -4, transition: { duration: 0.3 } }}
-                        transition={{ duration: 0.9, ease: [0.85, 0, 0.15, 1] }}
+                        exit={{ opacity: 0, y: 8 }}
+                        transition={{
+                            duration: 0.6,
+                            ease: [0.16, 1, 0.3, 1]
+                        }}
                         className="w-full"
                     >
                         {font.preview.method === 'canvas' ? (
                             <img
-                                src={currentCanvasPreview}
+                                src={specimenSrc}
                                 alt={font.family}
                                 className="max-w-[300px] h-auto dark:invert origin-left object-contain"
                             />
@@ -116,7 +145,7 @@ function FontItem({ font, index, globalPangramIndex }: { font: FontInfo; index: 
                                         fontFamily: font.preview.method === 'datauri'
                                             ? `'${font.family}-preview', sans-serif`
                                             : `'${font.family}', sans-serif`,
-                                        fontWeight: font.weights[0]
+                                        fontWeight: activeWeight
                                     }}
                                 >
                                     {currentPangram}
@@ -126,13 +155,6 @@ function FontItem({ font, index, globalPangramIndex }: { font: FontInfo; index: 
                     </motion.div>
                 </AnimatePresence>
             </div>
-
-            {/* Details */}
-            {font.letterSpacing.length > 0 && (
-                <div className="text-[10px] text-muted font-mono tracking-wider uppercase hidden">
-                    tracking: {font.letterSpacing.slice(0, 3).join(', ')}
-                </div>
-            )}
         </motion.div>
     );
 }

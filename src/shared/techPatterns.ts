@@ -20,7 +20,7 @@ export interface TechPattern {
 export const TECH_PATTERNS: TechPattern[] = [
     // ==================== FRONTEND ====================
     // JS Frameworks
-    { name: 'React', category: 'js-framework', url: 'https://react.dev', isSignal: false, patterns: { globals: ['React', '__REACT_DEVTOOLS_GLOBAL_HOOK__', '_reactListening'], dom: ['[data-reactroot]', '[data-react-helmet]', '#react-root'] }, versionGlobal: 'React.version' },
+    { name: 'React', category: 'js-framework', url: 'https://react.dev', isSignal: false, patterns: { globals: ['React', '__REACT_DEVTOOLS_GLOBAL_HOOK__', '_reactListening', '__react_router_build_config'], dom: ['[data-reactroot]', '[data-react-helmet]', '#react-root', '#root'] }, versionGlobal: 'React.version' },
     { name: 'Vue.js', category: 'js-framework', url: 'https://vuejs.org', isSignal: false, patterns: { globals: ['Vue', '__VUE__', '__VUE_DEVTOOLS_GLOBAL_HOOK__'], dom: ['[data-v-]'] }, versionGlobal: 'Vue.version' },
     { name: 'Svelte', category: 'js-framework', url: 'https://svelte.dev', isSignal: true, patterns: { globals: ['__svelte'], dom: ['[class*="svelte-"]'] } },
     { name: 'Angular', category: 'js-framework', url: 'https://angular.io', isSignal: false, patterns: { globals: ['ng'], dom: ['[ng-version]', '[_ngcontent-]'] } },
@@ -52,7 +52,8 @@ export const TECH_PATTERNS: TechPattern[] = [
     { name: 'Mantine', category: 'ui-framework', url: 'https://mantine.dev', isSignal: true, patterns: { dom: ['[class*="mantine-"]'] } },
     { name: 'Ant Design', category: 'ui-framework', url: 'https://ant.design', isSignal: false, patterns: { dom: ['[class*="ant-"]'] } },
     { name: 'NextUI', category: 'ui-framework', url: 'https://nextui.org', isSignal: true, patterns: { dom: ['[class*="nextui-"]'] } },
-    { name: 'DaisyUI', category: 'ui-framework', url: 'https://daisyui.com', isSignal: true, patterns: { dom: ['[data-theme]', '.btn-primary.btn-sm', '.card.bg-base-200'] } },
+    { name: 'DaisyUI', category: 'ui-framework', url: 'https://daisyui.com', isSignal: true, patterns: { dom: ['.btn-primary.btn-sm', '.card.bg-base-200', '.navbar.bg-base-100', '.footer.p-10.bg-base-200'] } },
+    { name: 'HeroUI', category: 'ui-framework', url: 'https://heroui.com', isSignal: true, patterns: { dom: ['[class*="heroui-"]'], scripts: [/heroui/i] }, implies: ['React', 'Tailwind CSS'] },
     { name: 'Blueprint', category: 'ui-framework', url: 'https://blueprintjs.com', isSignal: false, patterns: { dom: ['[class*="bp4-"]', '[class*="bp5-"]'] } },
     { name: 'Vuetify', category: 'ui-framework', url: 'https://vuetifyjs.com', isSignal: false, patterns: { dom: ['.v-application', '.v-main'] } },
 
@@ -102,17 +103,21 @@ export const TECH_PATTERNS: TechPattern[] = [
     { name: 'Lenis', category: 'animation', url: 'https://lenis.studiofreight.com', isSignal: true, patterns: { globals: ['Lenis'] } },
     { name: 'Barba.js', category: 'animation', url: 'https://barba.js.org', isSignal: true, patterns: { globals: ['barba'], dom: ['[data-barba]'] } },
     { name: 'Swup', category: 'animation', url: 'https://swup.js.org', isSignal: true, patterns: { globals: ['swup'] } },
+    { name: 'Curtains.js', category: 'webgl', url: 'https://www.curtainsjs.com', isSignal: true, patterns: { globals: ['Curtains'] } },
+    { name: 'Theatre.js', category: 'animation', url: 'https://www.theatrejs.com', isSignal: true, patterns: { globals: ['__theatrejs'] } },
 
     // WebGL / 3D
-    { name: 'Three.js', category: 'webgl', url: 'https://threejs.org', isSignal: true, patterns: { globals: ['THREE'] } },
-    { name: 'React Three Fiber', category: 'webgl', url: 'https://docs.pmnd.rs/react-three-fiber', isSignal: true, patterns: {} },
+    { name: 'Three.js', category: 'webgl', url: 'https://threejs.org', isSignal: true, patterns: { globals: ['THREE', '__THREE__'], scripts: [/three/i] }, versionGlobal: 'THREE.REVISION' },
+    { name: 'React Three Fiber', category: 'webgl', url: 'https://docs.pmnd.rs/react-three-fiber', isSignal: true, patterns: { scripts: [/react-three-fiber/i, /@react-three\/fiber/i, /@react-three\/drei/i], globals: ['__R3F__'] }, implies: ['Three.js', 'React'] },
     { name: 'Babylon.js', category: 'webgl', url: 'https://babylonjs.com', isSignal: true, patterns: { globals: ['BABYLON'] } },
     { name: 'PixiJS', category: 'webgl', url: 'https://pixijs.com', isSignal: true, patterns: { globals: ['PIXI'] } },
     { name: 'A-Frame', category: 'webgl', url: 'https://aframe.io', isSignal: true, patterns: { dom: ['a-scene', 'a-entity'] } },
-    { name: 'Spline', category: 'webgl', url: 'https://spline.design', isSignal: true, patterns: { scripts: [/spline/i] } },
+    { name: 'Spline', category: 'webgl', url: 'https://spline.design', isSignal: true, patterns: { scripts: [/spline/i], dom: ['spline-viewer'] } },
+    { name: 'Unicorn Studio', category: 'webgl', url: 'https://unicorn.studio', isSignal: true, patterns: { globals: ['UnicornStudio'], scripts: [/unicornStudio/i], dom: ['[data-us-project]', '[data-scene-id]'] } },
     { name: 'model-viewer', category: 'webgl', url: 'https://modelviewer.dev', isSignal: true, patterns: { dom: ['model-viewer'] } },
 
     // Canvas & SVG
+    { name: 'Canvas API', category: 'canvas', url: 'https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API', isSignal: false, patterns: { dom: ['canvas'] } },
     { name: 'Fabric.js', category: 'canvas', url: 'http://fabricjs.com', isSignal: true, patterns: { globals: ['fabric'] } },
     { name: 'Konva', category: 'canvas', url: 'https://konvajs.org', isSignal: true, patterns: { globals: ['Konva'] } },
     { name: 'Paper.js', category: 'canvas', url: 'http://paperjs.org', isSignal: true, patterns: { globals: ['paper'] } },
@@ -241,7 +246,7 @@ export const TECH_PATTERNS: TechPattern[] = [
 
     // ==================== SECURITY & AUTH ====================
     { name: 'HSTS', category: 'security', url: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security', isSignal: false, patterns: { headers: [{ name: 'strict-transport-security' }] } },
-    { name: 'reCAPTCHA', category: 'security', url: 'https://www.google.com/recaptcha/', isSignal: false, patterns: { globals: ['grecaptcha'], scripts: [/recaptcha/] } },
+    { name: 'reCAPTCHA', category: 'security', url: 'https://www.google.com/recaptcha/', isSignal: false, patterns: { globals: ['grecaptcha', '___grecaptcha_cfg'], scripts: [/recaptcha/i] } },
     { name: 'hCaptcha', category: 'security', url: 'https://hcaptcha.com', isSignal: false, patterns: { scripts: [/hcaptcha/] } },
     { name: 'Turnstile', category: 'security', url: 'https://www.cloudflare.com/products/turnstile/', isSignal: true, patterns: { dom: ['.cf-turnstile'], scripts: [/turnstile/] } },
 

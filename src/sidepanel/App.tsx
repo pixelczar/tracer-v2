@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import '@fontsource/geist-sans';
 import { AnimatePresence, motion, useMotionValue, useSpring } from 'motion/react';
 import { ColorSection } from './components/ColorSection';
@@ -63,33 +63,35 @@ function TracerLogo({ theme }: { theme: 'light' | 'dark' }) {
     );
 }
 
-function LoadingState({ status, onFinished }: { status: string; onFinished?: () => void }) {
+function LoadingState({ status, onFinished, theme }: { status: string; onFinished?: () => void; theme: 'light' | 'dark' }) {
     return (
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0, transition: { duration: 0.4, ease: sexyEase } }}
-            className="flex-1 flex flex-col items-start justify-start pt-2"
+            exit={{ opacity: 0, transition: { duration: 0.6, ease: sexyEase } }}
+            className="flex-1 flex flex-col h-full"
         >
-            <AnimatePresence mode="wait">
+            <div className="flex-1 flex flex-col items-start justify-start pt-2">
                 <motion.div
-                    key={status}
                     initial={{ opacity: 0, x: -4 }}
                     animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 4 }}
-                    transition={{ duration: 0.3, ease: sexyEase }}
+                    transition={{ duration: 0.4, ease: sexyEase }}
                 >
                     <DecryptedText
                         text={status || "Initializing"}
-                        className="text-muted/80 font-medium tracking-[0.1em]"
+                        className={`font-medium tracking-[0.1em] ${status === 'Error' ? 'text-red-500 animate-pulse' : 'text-muted/80'}`}
                         onComplete={() => {
-                            if (status === 'Complete' || status === 'Error') {
-                                onFinished?.();
+                            if (status === 'Complete') {
+                                // Anticipation delay before reveal
+                                setTimeout(() => {
+                                    onFinished?.();
+                                }, 1000);
                             }
                         }}
                     />
                 </motion.div>
-            </AnimatePresence>
+            </div>
+            <TracerLogo theme={theme} />
         </motion.div>
     );
 }
@@ -130,19 +132,26 @@ export default function App() {
     useEffect(() => {
         const handleMessage = (message: { type: string; payload?: unknown }) => {
             switch (message.type) {
-                case 'SCAN_PROGRESS':
-                    setCursorMessage((message.payload as { status: string }).status);
+                case 'SCAN_PROGRESS': {
+                    const status = (message.payload as { status: string }).status;
+                    setCursorMessage(prev => {
+                        if (prev === 'Complete' || prev === 'Error') return prev;
+                        // Avoid repeats or backward status if somehow they arrive out of order
+                        if (prev === status) return prev;
+                        return status;
+                    });
                     break;
+                }
                 case 'SCAN_COMPLETE':
                     setData(message.payload as ScanResult);
                     setScanState('complete');
                     setCursorMessage('Complete');
-                    setTimeout(() => setCursorVisible(false), 1000);
+                    setTimeout(() => setCursorVisible(false), 2000);
                     break;
                 case 'SCAN_ERROR':
                     setScanState('error');
                     setCursorMessage('Error');
-                    setTimeout(() => setCursorVisible(false), 1000);
+                    setTimeout(() => setCursorVisible(false), 2000);
                     break;
                 case 'INSPECT_COMPLETE':
                     if (message.payload) {
@@ -171,18 +180,37 @@ export default function App() {
         startScan();
     }, []);
 
+    const scanningRef = useRef(false);
+
     const startScan = async () => {
+        if (scanningRef.current) return;
+        scanningRef.current = true;
+
         setData(null); // Clear data to trigger loading state
         setRevealData(false);
         setScanState('scanning');
         setCursorVisible(true);
         setCursorMessage('Scanning');
 
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (tab.id) {
-            chrome.runtime.sendMessage({ type: 'START_SCAN', tabId: tab.id });
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (tab?.id) {
+                chrome.runtime.sendMessage({ type: 'START_SCAN', tabId: tab.id });
+            }
+        } finally {
+            scanningRef.current = false;
         }
     };
+
+    // Safety check: If data is available but loading screen is stuck, force reveal
+    useEffect(() => {
+        if (data && !revealData && scanState === 'complete') {
+            const timer = setTimeout(() => {
+                setRevealData(true);
+            }, 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [data, revealData, scanState]);
 
     const startInspect = async () => {
         setInspectState('selecting');
@@ -252,6 +280,7 @@ export default function App() {
                                     key="loading"
                                     status={cursorMessage}
                                     onFinished={() => setRevealData(true)}
+                                    theme={theme}
                                 />
                             ) : data ? (
                                 <motion.div
@@ -272,10 +301,10 @@ export default function App() {
                                     <AnimatePresence>
                                         {(inspectedElement || inspectState === 'analyzing') && (
                                             <motion.div
-                                                initial={{ opacity: 0, y: 20 }}
+                                                initial={{ opacity: 0, y: 12 }}
                                                 animate={{ opacity: 1, y: 0 }}
-                                                exit={{ opacity: 0, scale: 0.95 }}
-                                                transition={{ duration: 0.6, ease: sexyEase }}
+                                                exit={{ opacity: 0, scale: 0.98 }}
+                                                transition={{ duration: 0.5, ease: sexyEase }}
                                             >
                                                 <InspectedElementCard
                                                     element={inspectedElement}
@@ -293,7 +322,7 @@ export default function App() {
                                     {data.colors.length > 0 && (
                                         <motion.section
                                             variants={{
-                                                hidden: { opacity: 0, y: 24 },
+                                                hidden: { opacity: 0, y: 12 },
                                                 show: { opacity: 1, y: 0 }
                                             }}
                                             transition={{ duration: 0.8, ease: sexyEase }}
@@ -309,7 +338,7 @@ export default function App() {
                                     {data.fonts.length > 0 && (
                                         <motion.section
                                             variants={{
-                                                hidden: { opacity: 0, y: 24 },
+                                                hidden: { opacity: 0, y: 12 },
                                                 show: { opacity: 1, y: 0 }
                                             }}
                                             transition={{ duration: 0.8, ease: sexyEase }}
@@ -325,7 +354,7 @@ export default function App() {
                                     {data.tech.length > 0 && (
                                         <motion.section
                                             variants={{
-                                                hidden: { opacity: 0, y: 24 },
+                                                hidden: { opacity: 0, y: 12 },
                                                 show: { opacity: 1, y: 0 }
                                             }}
                                             transition={{ duration: 0.8, ease: sexyEase }}
@@ -341,7 +370,7 @@ export default function App() {
                                     {data.ogImage && (
                                         <motion.section
                                             variants={{
-                                                hidden: { opacity: 0, y: 24 },
+                                                hidden: { opacity: 0, y: 12 },
                                                 show: { opacity: 1, y: 0 }
                                             }}
                                             transition={{ duration: 0.8, ease: sexyEase }}

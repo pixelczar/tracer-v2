@@ -10,7 +10,7 @@ export function TechItem({ tech }: Props) {
   const isUncertain = tech.confidence < 80;
 
   return (
-    <div className="flex items-center justify-betweenX gap-2 py-1 border-b border-faint last:border-0 group">
+    <div className="flex items-center justify-between gap-2 py-1 border-b border-faint last:border-0 group">
       <div className="flex items-center gap-2">
         {tech.icon && (
           <img src={tech.icon} alt="" className="w-4 h-4 rounded-sm" />

@@ -33,6 +33,7 @@ export interface FontPreview {
     method: 'google' | 'adobe' | 'datauri' | 'canvas';
     data: string;
     previews?: string[]; // Multiple data URIs for cycling
+    weightPreviews?: Record<string, string[]>; // weight -> cycling previews
 }
 
 export interface TechInfo {

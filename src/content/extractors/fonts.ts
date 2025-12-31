@@ -137,11 +137,18 @@ async function generatePreview(font: FontDetails): Promise<FontPreview> {
     }
 
     // Fallback: render via canvas
-    const previews = await Promise.all(PANGRAMS.map(p => renderFontToCanvas(font.family, p, font.isMono)));
+    const weightPreviews: Record<string, string[]> = {};
+    for (const weight of font.weights) {
+        weightPreviews[weight] = await Promise.all(
+            PANGRAMS.map(p => renderFontToCanvas(font.family, p, font.isMono, weight))
+        );
+    }
+
     return {
         method: 'canvas',
-        data: previews[0],
-        previews,
+        data: weightPreviews[font.weights[0]]?.[0] || '',
+        previews: weightPreviews[font.weights[0]] || [],
+        weightPreviews,
     };
 }
 
@@ -164,10 +171,10 @@ function findFontUrl(family: string): string | null {
     return null;
 }
 
-async function renderFontToCanvas(family: string, text: string, isMono: boolean): Promise<string> {
+async function renderFontToCanvas(family: string, text: string, isMono: boolean, weight: string = '400'): Promise<string> {
     // Attempt to ensure font is loaded
     try {
-        await document.fonts.load(`16px "${family}"`);
+        await document.fonts.load(`${weight} 16px "${family}"`);
     } catch (e) { }
 
     const canvas = document.createElement('canvas');
@@ -182,7 +189,7 @@ async function renderFontToCanvas(family: string, text: string, isMono: boolean)
     // Non-system keywords must be quoted
     const familyQuery = isSystemKey ? family : `"${family}"`;
     const fallback = isMono ? 'monospace' : 'sans-serif';
-    const fontString = `${size}px ${familyQuery}, ${fallback}`;
+    const fontString = `${weight} ${size}px ${familyQuery}, ${fallback}`;
 
     ctx.font = fontString;
 

@@ -34,7 +34,7 @@ export function ColorSection({ colors }: Props) {
           key={color.hex}
           onClick={() => handleCopy(color.hex)}
           variants={{
-            hidden: { opacity: 0, y: -4 },
+            hidden: { opacity: 0, y: 4 },
             show: { opacity: 1, y: 0 }
           }}
           transition={{ duration: 0.16, ease: sexyEase }}
