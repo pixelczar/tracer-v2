@@ -75,7 +75,7 @@ export const TECH_PATTERNS: TechPattern[] = [
     { name: 'Tailwind CSS', category: 'css-framework', url: 'https://tailwindcss.com', isSignal: false, patterns: { dom: ['html.tw-dark', '[class*="tw-"]'], globals: ['tailwind'] } },
     { name: 'Bootstrap', category: 'css-framework', url: 'https://getbootstrap.com', isSignal: false, patterns: { globals: ['bootstrap'], dom: ['.container-fluid', '.row', '.col-md-'] } },
     { name: 'Bulma', category: 'css-framework', url: 'https://bulma.io', isSignal: false, patterns: { dom: ['.is-primary.button', '.columns'] } },
-    { name: 'styled-components', category: 'css-in-js', url: 'https://styled-components.com', isSignal: false, patterns: { dom: ['style[data-styled]', '[class*="sc-"]'] } },
+    { name: 'styled-components', category: 'css-in-js', url: 'https://styled-components.com', isSignal: false, patterns: { globals: ['styled', '__styled-components__'], dom: ['style[data-styled]', '[class*="sc-"]', 'style[data-styled-components]'], scripts: [/styled-components/] } },
     { name: 'Emotion', category: 'css-in-js', url: 'https://emotion.sh', isSignal: false, patterns: { dom: ['style[data-emotion]'] } },
     { name: 'Stitches', category: 'css-in-js', url: 'https://stitches.dev', isSignal: true, patterns: { dom: ['style[data-stitches]'] } },
     { name: 'Vanilla Extract', category: 'css-in-js', url: 'https://vanilla-extract.style', isSignal: true, patterns: {} },

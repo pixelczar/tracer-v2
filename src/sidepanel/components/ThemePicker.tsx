@@ -10,8 +10,9 @@ export function ThemePicker({ theme, setTheme }: Props) {
         <button
             onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
             className="
-                w-9 h-9 flex items-center justify-center rounded-md
-                text-fg transition-all
+                w-8 h-8 flex items-center justify-center rounded-md
+                text-fg opacity-60 transition-all
+                border border-transparent hover:border-faint hover:opacity-100
             "
             title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
         >

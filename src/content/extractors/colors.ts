@@ -86,26 +86,69 @@ function processColors(colorMap: Map<string, number>): ColorInfo[] {
     const sorted = Array.from(colorMap.entries())
         .sort((a, b) => b[1] - a[1]);
 
-    // Deduplicate similar colors (keep higher weight)
+    // Deduplicate similar colors (merge weights into the most prominent one)
     const distinct: [string, number][] = [];
-    const threshold = 15; // Delta-E threshold approx
 
     for (const [hex, weight] of sorted) {
-        // If we already have a very similar color, skip this one
-        const isSimilar = distinct.some(([dHex]) => colorDistance(hex, dHex) < threshold);
-        if (!isSimilar) {
+        // Find if there's a similar color already in distinct
+        const similarIndex = distinct.findIndex(([dHex]) => {
+            const distance = colorDistance(hex, dHex);
+            // Use adaptive threshold based on color brightness
+            // Near-white/black colors need much stricter threshold (smaller distance)
+            const brightness1 = getBrightness(hex);
+            const brightness2 = getBrightness(dHex);
+            const isNearExtreme1 = brightness1 > 240 || brightness1 < 20;
+            const isNearExtreme2 = brightness2 > 240 || brightness2 < 20;
+            
+            // If either color is near extreme, use very strict threshold
+            if (isNearExtreme1 || isNearExtreme2) {
+                // For near-black: threshold of 5 (catches #000000 vs #0A0A0A)
+                // For near-white: threshold of 10 (catches #FFFFFF vs #F0F0F0)
+                const threshold = brightness1 < 20 || brightness2 < 20 ? 5 : 10;
+                return distance < threshold;
+            }
+            
+            // For mid-range colors, use standard threshold
+            return distance < 15;
+        });
+
+        if (similarIndex >= 0) {
+            // Merge weight into the existing similar color
+            distinct[similarIndex][1] += weight;
+        } else {
             distinct.push([hex, weight]);
         }
     }
 
+    // Re-sort after merging weights
+    distinct.sort((a, b) => b[1] - a[1]);
+
     const topColors = distinct.slice(0, 12);
     const maxWeight = topColors[0]?.[1] || 1;
 
-    return topColors.map(([hex, weight]) => ({
-        hex,
-        weight: weight > maxWeight * 0.5 ? 3 : weight > maxWeight * 0.2 ? 2 : 1,
-        source: 'computed' as const,
-    }));
+    // Limit weight 3 (large swatches) to top 2-3 colors to avoid too many large swatches
+    // Use stricter threshold: top 2 colors OR colors > 60% of max weight
+    let weight3Count = 0;
+    const maxWeight3 = 2; // Maximum number of weight 3 colors
+
+    return topColors.map(([hex, weight]) => {
+        let assignedWeight: number;
+        
+        if (weight > maxWeight * 0.6 && weight3Count < maxWeight3) {
+            assignedWeight = 3;
+            weight3Count++;
+        } else if (weight > maxWeight * 0.2) {
+            assignedWeight = 2;
+        } else {
+            assignedWeight = 1;
+        }
+
+        return {
+            hex,
+            weight: assignedWeight,
+            source: 'computed' as const,
+        };
+    });
 }
 
 function normalizeToHex(color: string): string | null {
@@ -139,8 +182,9 @@ function isColorful(hex: string): boolean {
     return delta > 30;
 }
 
-// Simple RGB distance (Euclidean) - fast enough for this check
-function colorDistance(hex1: string, hex2: string) {
+// Improved color distance calculation
+// Uses weighted RGB distance that better approximates perceptual difference
+function colorDistance(hex1: string, hex2: string): number {
     const r1 = parseInt(hex1.slice(1, 3), 16);
     const g1 = parseInt(hex1.slice(3, 5), 16);
     const b1 = parseInt(hex1.slice(5, 7), 16);
@@ -149,5 +193,20 @@ function colorDistance(hex1: string, hex2: string) {
     const g2 = parseInt(hex2.slice(3, 5), 16);
     const b2 = parseInt(hex2.slice(5, 7), 16);
 
-    return Math.sqrt(Math.pow(r2 - r1, 2) + Math.pow(g2 - g1, 2) + Math.pow(b2 - b1, 2));
+    // Weighted RGB distance (human eye is more sensitive to green)
+    // This better approximates perceptual difference than simple Euclidean
+    const dr = r2 - r1;
+    const dg = g2 - g1;
+    const db = b2 - b1;
+    
+    // Use weighted distance: green weighted more heavily (human eye sensitivity)
+    return Math.sqrt(2 * dr * dr + 4 * dg * dg + 3 * db * db);
+}
+
+function getBrightness(hex: string): number {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    // Standard brightness calculation
+    return (r * 299 + g * 587 + b * 114) / 1000;
 }

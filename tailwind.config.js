@@ -10,7 +10,7 @@ export default {
                 muted: 'var(--muted)',
                 faint: 'var(--faint)',
                 subtle: 'var(--subtle)',
-                accent: '#eaff00',
+                accent: 'var(--accent)',
                 highlight: {
                     dark: '#eaff00',
                     light: '#2684ff',

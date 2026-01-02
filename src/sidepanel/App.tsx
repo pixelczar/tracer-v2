@@ -6,7 +6,7 @@ import { TypographySection } from './components/TypographySection';
 import { TechSection } from './components/TechSection';
 import { InspectedElementCard } from './components/InspectedElement';
 import { ThemePicker } from './components/ThemePicker';
-import { IconInspect } from './components/Icons';
+import { IconInspect, IconRefresh } from './components/Icons';
 import { DecryptedText } from './components/DecryptedText';
 import type { ScanResult, ScanState, InspectedElement, InspectState } from '../shared/types';
 import { safeSendMessage, safeAddMessageListener, isExtensionContextValid } from '../shared/chromeUtils';
@@ -54,7 +54,7 @@ function CursorBubble({ message, visible }: { message: string; visible: boolean 
 
 function TracerLogo({ theme }: { theme: 'light' | 'dark' }) {
     return (
-        <div className="mt-auto pt-10 pb-4 opacity-10 select-none">
+        <div className="p-4 opacity-10 select-none">
             <img
                 src={theme === 'light' ? logoLight : logoDark}
                 className="w-full h-auto"
@@ -64,7 +64,7 @@ function TracerLogo({ theme }: { theme: 'light' | 'dark' }) {
     );
 }
 
-function LoadingState({ status, onFinished, theme }: { status: string; onFinished?: () => void; theme: 'light' | 'dark' }) {
+function LoadingState({ status, onFinished }: { status: string; onFinished?: () => void }) {
     return (
         <motion.div
             initial={{ opacity: 0 }}
@@ -86,13 +86,12 @@ function LoadingState({ status, onFinished, theme }: { status: string; onFinishe
                                 // Anticipation delay before reveal
                                 setTimeout(() => {
                                     onFinished?.();
-                                }, 1000);
+                                }, 500);
                             }
                         }}
                     />
                 </motion.div>
             </div>
-            <TracerLogo theme={theme} />
         </motion.div>
     );
 }
@@ -293,38 +292,70 @@ export default function App() {
                 onMouseLeave={() => setIsHovering(false)}
             >
                 <div className="w-full max-w-96 mx-auto flex flex-col min-h-screen">
-                    <header className="flex items-center justify-between px-5 py-4 border-b border-faint">
-                        <div className="flex items-center gap-2.5">
+                    <header className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-faint">
+                        <div className="flex items-center gap-2.5 flex-1 min-w-0">
                             {displayFavicon && (
-                                <img src={displayFavicon} alt="" className="w-5 h-5 rounded" />
+                                <motion.img
+                                    key={`favicon-${displayFavicon}`}
+                                    src={displayFavicon}
+                                    alt=""
+                                    className="w-5 h-5 rounded flex-shrink-0"
+                                    initial={false}
+                                    animate={{ opacity: isLoading ? 0.3 : 1 }}
+                                    transition={{ duration: 0.3, ease: sexyEase }}
+                                />
                             )}
-                            <span className="font-medium text-[15px] truncate">
-                                {displayDomain}
-                            </span>
+                            {displayDomain && (
+                                <motion.span
+                                    key={`domain-${displayDomain}`}
+                                    className="font-medium text-sm truncate"
+                                    initial={false}
+                                    animate={{ opacity: isLoading ? 0.3 : 1 }}
+                                    transition={{ duration: 0.3, ease: sexyEase }}
+                                >
+                                    {displayDomain}
+                                </motion.span>
+                            )}
                         </div>
-                        <button
-                            onClick={isInspecting ? stopInspect : startInspect}
-                            className={`
-                                w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0
-                                transition-all duration-150
-                                ${isInspecting
-                                    ? 'bg-accent text-black'
-                                    : 'border border-faint text-fg hover:border-muted'
-                                }
-                            `}
-                        >
-                            <IconInspect />
-                        </button>
+                        <div className="flex items-center gap-0.5 flex-shrink-0">
+                            <button
+                                onClick={startScan}
+                                disabled={isLoading}
+                                className={`
+                                    w-8 h-8 rounded-md flex items-center justify-center
+                                    transition-all duration-150
+                                    border border-transparent text-fg opacity-60 hover:border-faint hover:opacity-100
+                                    disabled:opacity-30 disabled:cursor-not-allowed
+                                    active:scale-95
+                                `}
+                                title="Rescan"
+                            >
+                                <IconRefresh className={isLoading ? 'animate-spin' : ''} />
+                            </button>
+                            <button
+                                onClick={isInspecting ? stopInspect : startInspect}
+                                className={`
+                                    w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0
+                                    transition-all duration-150
+                                    ${isInspecting
+                                        ? 'bg-accent text-black'
+                                        : 'border border-transparent text-fg opacity-50 hover:border-faint hover:opacity-100'
+                                    }
+                                `}
+                            >
+                                <IconInspect />
+                            </button>
+                            <ThemePicker theme={theme} setTheme={setTheme} />
+                        </div>
                     </header>
 
-                    <main className="flex-1 px-5 py-6 flex flex-col gap-10 overflow-y-auto relative">
+                    <main className="flex-1 px-4 py-4 flex flex-col gap-10 overflow-y-scroll relative">
                         <AnimatePresence mode="wait">
                             {!revealData ? (
                                 <LoadingState
                                     key="loading"
                                     status={cursorMessage}
                                     onFinished={() => setRevealData(true)}
-                                    theme={theme}
                                 />
                             ) : data ? (
                                 <motion.div
@@ -435,34 +466,13 @@ export default function App() {
                                             </motion.div>
                                         </motion.section>
                                     )}
-
-                                    <motion.div
-                                        variants={{
-                                            hidden: { opacity: 0 },
-                                            show: { opacity: 1 }
-                                        }}
-                                        transition={{ delay: 0.5, duration: 1 }}
-                                    >
-                                        <TracerLogo theme={theme} />
-                                    </motion.div>
                                 </motion.div>
                             ) : null}
                         </AnimatePresence>
                     </main>
-
-                    <footer className="px-5 py-4 flex items-center justify-between border-t border-faint">
-                        <button
-                            onClick={startScan}
-                            disabled={isLoading}
-                            className="
-                                px-4 py-2 rounded-md text-xs font-medium 
-                                border border-faint text-fg hover:border-muted transition-all 
-                                disabled:opacity-30 active:scale-95
-                            "
-                        >
-                            {isLoading ? 'Scanning...' : 'Rescan'}
-                        </button>
-                        <ThemePicker theme={theme} setTheme={setTheme} />
+                    
+                    <footer className="flex-shrink-0 border-t border-faint">
+                        <TracerLogo theme={theme} />
                     </footer>
                 </div>
             </div>

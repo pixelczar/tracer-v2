@@ -85,19 +85,23 @@ function performDetection(foundGlobals: string[], versions: Record<string, strin
         if (tool.patterns.dom) {
             tool.patterns.dom.forEach(selector => {
                 try {
-                    const el = document.querySelector(selector);
-                    if (el) {
+                    // Use querySelectorAll to check all elements, not just first match
+                    const elements = document.querySelectorAll(selector);
+                    if (elements.length > 0) {
                         let confidence = 100;
                         if (['Bootstrap', 'Vuetify', 'DaisyUI'].includes(tool.name)) {
                             confidence = 70;
                         }
 
                         let version: string | undefined;
-                        if (tool.versionDom && el.matches(tool.versionDom.selector)) {
-                            version = tool.versionDom.attribute ? el.getAttribute(tool.versionDom.attribute) || undefined : el.textContent || undefined;
-                            if (version && tool.versionDom.regex) {
-                                const match = version.match(tool.versionDom.regex);
-                                version = match ? match[1] || match[0] : version;
+                        if (tool.versionDom) {
+                            const versionEl = document.querySelector(tool.versionDom.selector);
+                            if (versionEl) {
+                                version = tool.versionDom.attribute ? versionEl.getAttribute(tool.versionDom.attribute) || undefined : versionEl.textContent || undefined;
+                                if (version && tool.versionDom.regex) {
+                                    const match = version.match(tool.versionDom.regex);
+                                    version = match ? match[1] || match[0] : version;
+                                }
                             }
                         }
                         update(tool.name, confidence, version);
