@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
 import type { FontInfo } from '../../shared/types';
+import { IconArrow } from './Icons';
 
 const sexyEase = [0.16, 1, 0.3, 1] as const;
 
@@ -81,12 +82,21 @@ function FontItem({ font, index, globalPangramIndex }: { font: FontInfo; index: 
                 show: { opacity: 1, y: 0 }
             }}
             transition={{ duration: 0.7, ease: sexyEase }}
-            className="flex flex-col gap-3"
+            className="flex flex-col gap-3 group"
         >
             {/* Header */}
             <div className="flex items-baseline justify-between px-0.5">
-                <span className="flex items-center gap-1 font-semibold text-[13px]">
+                <span className="flex items-center gap-1.5 font-semibold text-[13px]">
                     {font.family}
+                    <a
+                        href={`https://www.google.com/search?q=${encodeURIComponent(`${font.family} font`)}&udm=50`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-muted opacity-0 group-hover:opacity-100 transition-all duration-300 hover:text-accent"
+                        title={`Search for "${font.family} font" in Google AI`}
+                    >
+                        <IconArrow />
+                    </a>
                 </span>
                 <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
                     {font.weights.map((w, i) => (
@@ -96,7 +106,7 @@ function FontItem({ font, index, globalPangramIndex }: { font: FontInfo; index: 
                                 className={`
                                     text-[10px] font-mono transition-all duration-200 px-0.5
                                     ${activeWeight === w
-                                        ? 'text-white font-bold'
+                                        ? 'text-fg font-bold'
                                         : 'text-muted hover:text-accent'
                                     }
                                 `}

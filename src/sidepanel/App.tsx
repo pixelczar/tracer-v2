@@ -8,6 +8,7 @@ import { InspectedElementCard } from './components/InspectedElement';
 import { ThemePicker } from './components/ThemePicker';
 import { IconInspect, IconRefresh } from './components/Icons';
 import { DecryptedText } from './components/DecryptedText';
+import { ScrambleText } from './components/ScrambleText';
 import type { ScanResult, ScanState, InspectedElement, InspectState } from '../shared/types';
 import { safeSendMessage, safeAddMessageListener, isExtensionContextValid } from '../shared/chromeUtils';
 import logoLight from '../assets/tracer-text-on-light-slashes-00.svg';
@@ -15,6 +16,20 @@ import logoDark from '../assets/tracer-text-on-dark-slashes-00.svg';
 
 // High-end easing for that premium feel
 const sexyEase = [0.16, 1, 0.3, 1] as const;
+
+function SectionHeader({ text }: { text: string }) {
+    const [isHovered, setIsHovered] = useState(false);
+
+    return (
+        <h2 
+            className="text-[12px] text-muted mb-4"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+        >
+            <ScrambleText text={text} trigger={isHovered} />
+        </h2>
+    );
+}
 
 // Cursor bubble for side panel
 function CursorBubble({ message, visible }: { message: string; visible: boolean }) {
@@ -279,7 +294,8 @@ export default function App() {
     const isLoading = scanState === 'scanning' || scanState === 'processing';
     const isInspecting = inspectState === 'selecting' || inspectState === 'analyzing';
 
-    const displayDomain = data?.domain || currentDomain || '';
+    const rawDomain = data?.domain || currentDomain || '';
+    const displayDomain = rawDomain.startsWith('www.') ? rawDomain.slice(4) : rawDomain;
     const displayFavicon = data?.favicon || currentFavicon || '';
 
     return (
@@ -301,17 +317,17 @@ export default function App() {
                                     alt=""
                                     className="w-5 h-5 rounded flex-shrink-0"
                                     initial={false}
-                                    animate={{ opacity: isLoading ? 0.3 : 1 }}
-                                    transition={{ duration: 0.3, ease: sexyEase }}
+                                    animate={{ opacity: isLoading ? 0 : 1 }}
+                                    transition={{ duration: 0.4, ease: sexyEase }}
                                 />
                             )}
                             {displayDomain && (
                                 <motion.span
-                                    key={`domain-${displayDomain}`}
+                                    key={`domain-${rawDomain}`}
                                     className="font-medium text-sm truncate"
                                     initial={false}
-                                    animate={{ opacity: isLoading ? 0.3 : 1 }}
-                                    transition={{ duration: 0.3, ease: sexyEase }}
+                                    animate={{ opacity: isLoading ? 0 : 1 }}
+                                    transition={{ duration: 0.6, ease: sexyEase }}
                                 >
                                     {displayDomain}
                                 </motion.span>
@@ -365,8 +381,8 @@ export default function App() {
                                     variants={{
                                         show: {
                                             transition: {
-                                                staggerChildren: 0.15,
-                                                delayChildren: 0.2
+                                                staggerChildren: 0.16,
+                                                delayChildren: 0.6
                                             }
                                         }
                                     }}
@@ -397,14 +413,13 @@ export default function App() {
                                     {data.colors.length > 0 && (
                                         <motion.section
                                             variants={{
-                                                hidden: { opacity: 0, y: 12 },
+                                                hidden: { opacity: 0, y: 6 },
                                                 show: { opacity: 1, y: 0 }
                                             }}
-                                            transition={{ duration: 0.8, ease: sexyEase }}
+                                            transition={{ duration: 1.2, ease: sexyEase }}
+                                            className="group"
                                         >
-                                            <h2 className="text-[12px] text-muted mb-4">
-                                                Colors
-                                            </h2>
+                                            <SectionHeader text="Colors" />
                                             <ColorSection colors={data.colors} />
                                         </motion.section>
                                     )}
@@ -413,14 +428,12 @@ export default function App() {
                                     {data.fonts.length > 0 && (
                                         <motion.section
                                             variants={{
-                                                hidden: { opacity: 0, y: 12 },
+                                                hidden: { opacity: 0, y: 6 },
                                                 show: { opacity: 1, y: 0 }
                                             }}
-                                            transition={{ duration: 0.8, ease: sexyEase }}
+                                            transition={{ duration: 1.2, ease: sexyEase }}
                                         >
-                                            <h2 className="text-[12px] text-muted mb-4">
-                                                Typography
-                                            </h2>
+                                            <SectionHeader text="Typography" />
                                             <TypographySection fonts={data.fonts} />
                                         </motion.section>
                                     )}
@@ -429,14 +442,12 @@ export default function App() {
                                     {data.tech.length > 0 && (
                                         <motion.section
                                             variants={{
-                                                hidden: { opacity: 0, y: 12 },
+                                                hidden: { opacity: 0, y: 6 },
                                                 show: { opacity: 1, y: 0 }
                                             }}
-                                            transition={{ duration: 0.8, ease: sexyEase }}
+                                            transition={{ duration: 1.2, ease: sexyEase }}
                                         >
-                                            <h2 className="text-[12px] text-muted mb-4">
-                                                Tech
-                                            </h2>
+                                            <SectionHeader text="Tech" />
                                             <TechSection tech={data.tech} />
                                         </motion.section>
                                     )}
@@ -445,14 +456,13 @@ export default function App() {
                                     {data.ogImage && (
                                         <motion.section
                                             variants={{
-                                                hidden: { opacity: 0, y: 12 },
+                                                hidden: { opacity: 0, y: 6 },
                                                 show: { opacity: 1, y: 0 }
                                             }}
-                                            transition={{ duration: 0.8, ease: sexyEase }}
+                                            transition={{ duration: 1.2, ease: sexyEase }}
+                                            className="group"
                                         >
-                                            <h2 className="text-[12px] text-muted mb-4">
-                                                Metadata
-                                            </h2>
+                                            <SectionHeader text="Metadata" />
                                             <motion.div
                                                 className="group relative aspect-[1.91/1] w-full overflow-hidden rounded-xl border border-faint bg-subtle box-border transition-colors cursor-zoom-in"
                                                 onClick={() => data.ogImage && window.open(data.ogImage, '_blank')}

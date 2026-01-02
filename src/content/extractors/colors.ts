@@ -1,7 +1,14 @@
 import type { ColorInfo } from '../../shared/types';
 
+interface ColorMetadata {
+    weight: number;
+    isAccent: boolean;
+    isPrimaryButton: boolean;
+    isNearExtreme: boolean;
+}
+
 export async function extractColors(): Promise<ColorInfo[]> {
-    const colorMap = new Map<string, number>();
+    const colorMap = new Map<string, ColorMetadata>();
 
     // 1. Extract from computed styles of visible elements (Area Weighted)
     extractFromComputedStyles(colorMap);
@@ -10,12 +17,15 @@ export async function extractColors(): Promise<ColorInfo[]> {
     return processColors(colorMap);
 }
 
-function extractFromComputedStyles(colorMap: Map<string, number>) {
+function extractFromComputedStyles(colorMap: Map<string, ColorMetadata>) {
     // Scan more elements to ensure we catch smaller accent buttons, but limit for performance
     const elements = document.querySelectorAll('body, body *');
     const sampled = Array.from(elements).slice(0, 3000);
 
     sampled.forEach(el => {
+        // Skip Tracer extension's own elements
+        if (isTracerElement(el)) return;
+
         const rect = el.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) return;
 
@@ -24,6 +34,37 @@ function extractFromComputedStyles(colorMap: Map<string, number>) {
         const area = Math.min(rect.width * rect.height, 100000);
 
         const computed = getComputedStyle(el);
+        
+        // Detect if this is a button, especially a primary button
+        const isButton = el.tagName === 'BUTTON' || 
+                        el.getAttribute('role') === 'button' ||
+                        el.classList.toString().toLowerCase().includes('button') ||
+                        el.classList.toString().toLowerCase().includes('btn');
+        
+        const classList = el.classList.toString().toLowerCase();
+        const isPrimaryButton = isButton && (
+            classList.includes('primary') ||
+            classList.includes('cta') ||
+            classList.includes('accent') ||
+            classList.includes('highlight') ||
+            el.getAttribute('data-variant') === 'primary' ||
+            el.getAttribute('data-type') === 'primary'
+        );
+
+        // Check element classes/attributes for accent/primary indicators
+        // This helps catch colors used for accents even if not on buttons
+        const hasAccentIndicator = 
+            classList.includes('accent') ||
+            classList.includes('primary') ||
+            classList.includes('brand') ||
+            classList.includes('highlight') ||
+            classList.includes('cta') ||
+            el.getAttribute('data-accent') !== null ||
+            el.getAttribute('data-primary') !== null;
+        
+        // Also check if the color itself is colorful (saturated) - these are likely accents
+        const bgHex = normalizeToHex(computed.backgroundColor);
+        const isAccentColor = bgHex ? isColorful(bgHex) : false;
 
         // Background Color
         const bg = computed.backgroundColor;
@@ -31,18 +72,31 @@ function extractFromComputedStyles(colorMap: Map<string, number>) {
             const hex = normalizeToHex(bg);
             if (hex) {
                 // Backgrounds get full area weight
-                addWeight(colorMap, hex, area);
+                // Buttons (especially primary) get extra boost
+                let weight = area;
+                if (isPrimaryButton) {
+                    weight *= 50; // Massive boost for primary buttons
+                } else if (isButton) {
+                    weight *= 10; // Boost for any button
+                }
+                // Boost if element has accent indicators or color is colorful
+                const isAccent = hasAccentIndicator || (isAccentColor && !isNearWhiteOrBlack(hex));
+                addWeight(colorMap, hex, weight, isAccent, isPrimaryButton);
             }
         }
 
-        // Text Color
+        // Text Color - heavily reduced since text nodes are boring
         const color = computed.color;
         if (isValidColor(color)) {
             const hex = normalizeToHex(color);
             if (hex) {
-                // Text gets much less weight relative to its box size, but we boost it if it's large text
-                // 0.05 roughly estimates text coverage vs box area
-                addWeight(colorMap, hex, area * 0.05);
+                // Text gets minimal weight - we don't want to prioritize text colors
+                // Only boost if it's on a button or has accent indicators
+                let weight = area * 0.01; // Much less than before
+                if (isPrimaryButton || hasAccentIndicator) {
+                    weight *= 20; // Boost accent/button text colors
+                }
+                addWeight(colorMap, hex, weight, hasAccentIndicator, false);
             }
         }
 
@@ -51,47 +105,93 @@ function extractFromComputedStyles(colorMap: Map<string, number>) {
         if (isValidColor(border) && parseFloat(computed.borderWidth) > 0) {
             const hex = normalizeToHex(border);
             if (hex) {
-                // Borders are thin
-                addWeight(colorMap, hex, area * 0.02);
+                // Borders are thin, but boost if on buttons
+                let weight = area * 0.02;
+                if (isPrimaryButton) {
+                    weight *= 10;
+                }
+                addWeight(colorMap, hex, weight, hasAccentIndicator, false);
             }
         }
 
         // SVG Fill/Stroke
         if (el instanceof SVGElement) {
             const fill = computed.fill;
-            if (isValidColor(fill)) addWeight(colorMap, normalizeToHex(fill)!, area);
+            if (isValidColor(fill)) {
+                const hex = normalizeToHex(fill);
+                if (hex) {
+                    addWeight(colorMap, hex, area, false, false);
+                }
+            }
             const stroke = computed.stroke;
-            if (isValidColor(stroke)) addWeight(colorMap, normalizeToHex(stroke)!, area * 0.1);
+            if (isValidColor(stroke)) {
+                const hex = normalizeToHex(stroke);
+                if (hex) {
+                    addWeight(colorMap, hex, area * 0.1, false, false);
+                }
+            }
         }
     });
 }
 
-function addWeight(map: Map<string, number>, hex: string, weight: number) {
-    if (isNearWhiteOrBlack(hex)) {
-        // Reduce weight of pure blacks/whites significantly so they don't dominate
-        weight *= 0.1;
+
+function addWeight(
+    map: Map<string, ColorMetadata>, 
+    hex: string, 
+    weight: number,
+    isAccentVar: boolean,
+    isPrimaryButton: boolean
+) {
+    const isNearExtreme = isNearWhiteOrBlack(hex);
+    
+    // Reduce weight of near-white/black significantly
+    if (isNearExtreme) {
+        weight *= 0.05; // Even more reduction
     } else if (isColorful(hex)) {
         // Boost saturated colors (accents)
-        weight *= 20;
+        weight *= 15; // Slightly reduced from 20 since we have other boosts now
+    }
+    
+    // Massive boost for accent variables or primary button colors
+    if (isAccentVar || isPrimaryButton) {
+        weight *= 100; // Huge boost to ensure these are prioritized
     }
 
-    map.set(hex, (map.get(hex) || 0) + weight);
+    const existing = map.get(hex);
+    if (existing) {
+        // Merge metadata - if any occurrence is accent/primary, mark it as such
+        existing.weight += weight;
+        existing.isAccent = existing.isAccent || isAccentVar;
+        existing.isPrimaryButton = existing.isPrimaryButton || isPrimaryButton;
+    } else {
+        map.set(hex, {
+            weight,
+            isAccent: isAccentVar,
+            isPrimaryButton: isPrimaryButton,
+            isNearExtreme
+        });
+    }
 }
 
 function isValidColor(c: string) {
     return c && c !== 'transparent' && c !== 'rgba(0, 0, 0, 0)';
 }
 
-function processColors(colorMap: Map<string, number>): ColorInfo[] {
+function processColors(colorMap: Map<string, ColorMetadata>): ColorInfo[] {
     const sorted = Array.from(colorMap.entries())
-        .sort((a, b) => b[1] - a[1]);
+        .sort((a, b) => {
+            // Prioritize accent/primary colors even if weight is slightly lower
+            const aBoost = (a[1].isAccent || a[1].isPrimaryButton) ? 1000000 : 0;
+            const bBoost = (b[1].isAccent || b[1].isPrimaryButton) ? 1000000 : 0;
+            return (b[1].weight + bBoost) - (a[1].weight + aBoost);
+        });
 
     // Deduplicate similar colors (merge weights into the most prominent one)
-    const distinct: [string, number][] = [];
+    const distinct: [string, ColorMetadata][] = [];
 
-    for (const [hex, weight] of sorted) {
+    for (const [hex, metadata] of sorted) {
         // Find if there's a similar color already in distinct
-        const similarIndex = distinct.findIndex(([dHex]) => {
+        const similarIndex = distinct.findIndex(([dHex, dMetadata]) => {
             const distance = colorDistance(hex, dHex);
             // Use adaptive threshold based on color brightness
             // Near-white/black colors need much stricter threshold (smaller distance)
@@ -113,31 +213,56 @@ function processColors(colorMap: Map<string, number>): ColorInfo[] {
         });
 
         if (similarIndex >= 0) {
-            // Merge weight into the existing similar color
-            distinct[similarIndex][1] += weight;
+            // Merge weight and metadata into the existing similar color
+            const existing = distinct[similarIndex][1];
+            existing.weight += metadata.weight;
+            existing.isAccent = existing.isAccent || metadata.isAccent;
+            existing.isPrimaryButton = existing.isPrimaryButton || metadata.isPrimaryButton;
+            // Keep the more extreme isNearExtreme (if either is extreme, mark as extreme)
+            existing.isNearExtreme = existing.isNearExtreme || metadata.isNearExtreme;
         } else {
-            distinct.push([hex, weight]);
+            distinct.push([hex, { ...metadata }]);
         }
     }
 
     // Re-sort after merging weights
-    distinct.sort((a, b) => b[1] - a[1]);
+    distinct.sort((a, b) => {
+        const aBoost = (a[1].isAccent || a[1].isPrimaryButton) ? 1000000 : 0;
+        const bBoost = (b[1].isAccent || b[1].isPrimaryButton) ? 1000000 : 0;
+        return (b[1].weight + bBoost) - (a[1].weight + aBoost);
+    });
 
     const topColors = distinct.slice(0, 12);
-    const maxWeight = topColors[0]?.[1] || 1;
+    const maxWeight = topColors[0]?.[1].weight || 1;
 
-    // Limit weight 3 (large swatches) to top 2-3 colors to avoid too many large swatches
-    // Use stricter threshold: top 2 colors OR colors > 60% of max weight
+    // Limit weight 3 (large swatches) to top colors
+    // Prioritize accent/primary colors, but NEVER allow near-white/black to be large
     let weight3Count = 0;
     const maxWeight3 = 2; // Maximum number of weight 3 colors
 
-    return topColors.map(([hex, weight]) => {
+    return topColors.map(([hex, metadata]) => {
         let assignedWeight: number;
         
-        if (weight > maxWeight * 0.6 && weight3Count < maxWeight3) {
-            assignedWeight = 3;
-            weight3Count++;
-        } else if (weight > maxWeight * 0.2) {
+        // NEVER assign weight 3 to near-white/black colors
+        const canBeLarge = !metadata.isNearExtreme;
+        
+        // Prioritize accent/primary colors for large swatches
+        const isPriorityColor = metadata.isAccent || metadata.isPrimaryButton;
+        
+        if (canBeLarge && weight3Count < maxWeight3) {
+            // If it's a priority color, give it weight 3 even if weight is lower
+            if (isPriorityColor || metadata.weight > maxWeight * 0.4) {
+                assignedWeight = 3;
+                weight3Count++;
+            } else if (metadata.weight > maxWeight * 0.6) {
+                assignedWeight = 3;
+                weight3Count++;
+            } else if (metadata.weight > maxWeight * 0.2) {
+                assignedWeight = 2;
+            } else {
+                assignedWeight = 1;
+            }
+        } else if (metadata.weight > maxWeight * 0.2) {
             assignedWeight = 2;
         } else {
             assignedWeight = 1;
@@ -167,8 +292,9 @@ function isNearWhiteOrBlack(hex: string): boolean {
     const g = parseInt(hex.slice(3, 5), 16);
     const b = parseInt(hex.slice(5, 7), 16);
     const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-    // Strict range for background noise
-    return brightness > 245 || brightness < 15;
+    // More strict range - exclude near-white and near-black from being large
+    // This catches colors like #F5F5F5, #0A0A0A, etc.
+    return brightness > 240 || brightness < 20;
 }
 
 function isColorful(hex: string): boolean {
@@ -209,4 +335,29 @@ function getBrightness(hex: string): number {
     const b = parseInt(hex.slice(5, 7), 16);
     // Standard brightness calculation
     return (r * 299 + g * 587 + b * 114) / 1000;
+}
+
+function isTracerElement(el: Element): boolean {
+    // Check if element is part of Tracer extension UI
+    const id = el.id || '';
+    // className can be a string or DOMTokenList, so convert to string safely
+    const className = String(el.className || '');
+    
+    // Check for tracer- prefix in ID or class
+    if (id.startsWith('tracer-') || className.includes('tracer-')) {
+        return true;
+    }
+    
+    // Check if element is inside a tracer container
+    let parent = el.parentElement;
+    while (parent) {
+        const parentId = parent.id || '';
+        const parentClassName = String(parent.className || '');
+        if (parentId.startsWith('tracer-') || parentClassName.includes('tracer-')) {
+            return true;
+        }
+        parent = parent.parentElement;
+    }
+    
+    return false;
 }

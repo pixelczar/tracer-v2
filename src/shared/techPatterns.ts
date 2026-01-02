@@ -93,7 +93,7 @@ export const TECH_PATTERNS: TechPattern[] = [
 
     // ==================== GRAPHICS & ANIMATION ====================
     { name: 'GSAP', category: 'animation', url: 'https://gsap.com', isSignal: true, patterns: { globals: ['gsap', 'TweenMax', 'TweenLite'] } },
-    { name: 'Framer Motion', category: 'animation', url: 'https://www.framer.com/motion/', isSignal: true, patterns: { dom: ['[data-framer-appear-id]'] } },
+    { name: 'Framer Motion', category: 'animation', url: 'https://www.framer.com/motion/', isSignal: true, patterns: { globals: ['motion', 'framerMotion', '__motion'], scripts: [/framer-motion/, /@motion/, /motion\/react/], dom: ['[data-framer-appear-id]'] } },
     { name: 'Anime.js', category: 'animation', url: 'https://animejs.com', isSignal: true, patterns: { globals: ['anime'] } },
     { name: 'Lottie', category: 'animation', url: 'https://lottiefiles.com', isSignal: true, patterns: { globals: ['lottie'], dom: ['lottie-player', 'dotlottie-player'] } },
     { name: 'Rive', category: 'animation', url: 'https://rive.app', isSignal: true, patterns: { globals: ['rive'], dom: ['canvas[data-rive]'] } },
@@ -135,7 +135,7 @@ export const TECH_PATTERNS: TechPattern[] = [
     // ==================== CONTENT & CMS ====================
     { name: 'WordPress', category: 'cms', url: 'https://wordpress.org', isSignal: false, patterns: { meta: [{ name: 'generator', content: /WordPress/i }], scripts: [/\/wp-content\//, /\/wp-includes\//] } },
     { name: 'Contentful', category: 'cms', url: 'https://contentful.com', isSignal: false, patterns: { scripts: [/contentful/] } },
-    { name: 'Sanity', category: 'cms', url: 'https://sanity.io', isSignal: true, patterns: { scripts: [/sanity\.io/] } },
+    { name: 'Sanity', category: 'cms', url: 'https://sanity.io', isSignal: true, patterns: { globals: ['sanity', '__sanity'], scripts: [/sanity\.io/, /sanitycdn\.com/, /sanity-studio/] } },
     { name: 'Strapi', category: 'cms', url: 'https://strapi.io', isSignal: true, patterns: { globals: ['strapi'], meta: [{ name: 'generator', content: /Strapi/i }] } },
     { name: 'Prismic', category: 'cms', url: 'https://prismic.io', isSignal: false, patterns: { scripts: [/prismic\.io/] } },
     { name: 'Ghost', category: 'cms', url: 'https://ghost.org', isSignal: false, patterns: { meta: [{ name: 'generator', content: /Ghost/i }] } },
@@ -167,7 +167,7 @@ export const TECH_PATTERNS: TechPattern[] = [
     { name: 'Google Analytics', category: 'analytics', url: 'https://analytics.google.com', isSignal: false, patterns: { globals: ['ga', 'gtag'], scripts: [/google-analytics\.com/, /googletagmanager\.com/] } },
     { name: 'Plausible', category: 'analytics', url: 'https://plausible.io', isSignal: true, patterns: { scripts: [/plausible\.io/] } },
     { name: 'Fathom', category: 'analytics', url: 'https://usefathom.com', isSignal: true, patterns: { scripts: [/usefathom\.com/] } },
-    { name: 'PostHog', category: 'analytics', url: 'https://posthog.com', isSignal: true, patterns: { globals: ['posthog'], scripts: [/posthog\.com/] } },
+    { name: 'PostHog', category: 'analytics', url: 'https://posthog.com', isSignal: true, patterns: { globals: ['posthog', '__posthog'], scripts: [/posthog\.com/, /posthog\.io/, /posthog-js/] } },
     { name: 'Amplitude', category: 'analytics', url: 'https://amplitude.com', isSignal: false, patterns: { globals: ['amplitude'], scripts: [/amplitude\.com/] } },
     { name: 'Mixpanel', category: 'analytics', url: 'https://mixpanel.com', isSignal: false, patterns: { globals: ['mixpanel'], scripts: [/mixpanel\.com/] } },
     { name: 'Heap', category: 'analytics', url: 'https://heap.io', isSignal: false, patterns: { globals: ['heap'], scripts: [/heap\.io/] } },

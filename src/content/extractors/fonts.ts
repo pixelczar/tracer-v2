@@ -40,6 +40,9 @@ function scanComputedFonts(fontMap: Map<string, FontDetails>) {
     const sampled = Array.from(elements).slice(0, 300);
 
     sampled.forEach(el => {
+        // Skip Tracer extension's own elements
+        if (isTracerElement(el)) return;
+
         const computed = getComputedStyle(el);
         const rawFamily = computed.fontFamily;
         const family = rawFamily.split(',')[0].replace(/["']/g, '').trim();
@@ -230,4 +233,29 @@ const SYSTEM_FONTS = [
 
 function isSystemFont(family: string): boolean {
     return SYSTEM_FONTS.includes(family.toLowerCase());
+}
+
+function isTracerElement(el: Element): boolean {
+    // Check if element is part of Tracer extension UI
+    const id = el.id || '';
+    // className can be a string or DOMTokenList, so convert to string safely
+    const className = String(el.className || '');
+    
+    // Check for tracer- prefix in ID or class
+    if (id.startsWith('tracer-') || className.includes('tracer-')) {
+        return true;
+    }
+    
+    // Check if element is inside a tracer container
+    let parent = el.parentElement;
+    while (parent) {
+        const parentId = parent.id || '';
+        const parentClassName = String(parent.className || '');
+        if (parentId.startsWith('tracer-') || parentClassName.includes('tracer-')) {
+            return true;
+        }
+        parent = parent.parentElement;
+    }
+    
+    return false;
 }

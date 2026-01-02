@@ -1,5 +1,5 @@
 import { motion, useMotionValue, useSpring, AnimatePresence } from 'motion/react';
-import { useEffect, useState } from 'react';
+import { ScrambleText } from './ScrambleText';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -36,29 +36,9 @@ export function CursorBubble({ message, visible }: Props) {
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.1, ease }}
                 >
-                    <ScrambleText text={message} />
+                    <ScrambleText text={message} trigger={true} />
                 </motion.div>
             )}
         </AnimatePresence>
     );
-}
-
-function ScrambleText({ text, duration = 200 }: { text: string; duration?: number }) {
-    const [display, setDisplay] = useState(text);
-    const chars = '▲▼◀▶◆◇○●□■';
-
-    useEffect(() => {
-        let i = 0;
-        const len = text.length * 2;
-        const int = duration / len;
-        const interval = setInterval(() => {
-            setDisplay(text.split('').map((c, idx) =>
-                idx < i / 2 ? text[idx] : c === ' ' ? ' ' : chars[Math.floor(Math.random() * chars.length)]
-            ).join(''));
-            if (++i >= len) { clearInterval(interval); setDisplay(text); }
-        }, int);
-        return () => clearInterval(interval);
-    }, [text, duration]);
-
-    return <span>{display}</span>;
 }
