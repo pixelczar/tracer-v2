@@ -1,3 +1,5 @@
+import { safeSendMessage } from '../../shared/chromeUtils';
+
 let inspectMode = false;
 let overlay: HTMLElement | null = null;
 let infoTooltip: HTMLElement | null = null;
@@ -73,7 +75,7 @@ export function enterInspectMode(onSelect: (el: Element) => void) {
     document.addEventListener('keydown', handleKeyDown, true);
 
     // Send status
-    chrome.runtime.sendMessage({ type: 'INSPECT_HOVER', payload: { status: 'Target acquisition' } });
+    safeSendMessage({ type: 'INSPECT_HOVER', payload: { status: 'Target acquisition' } });
 }
 
 export function exitInspectMode() {
@@ -132,7 +134,7 @@ function handleMouseMove(e: MouseEvent) {
     infoTooltip.style.opacity = '1';
 
     // Update status
-    chrome.runtime.sendMessage({ type: 'INSPECT_HOVER', payload: { status: 'Locked on' } });
+    safeSendMessage({ type: 'INSPECT_HOVER', payload: { status: 'Locked on' } });
 }
 
 function handleClick(e: MouseEvent) {
@@ -164,7 +166,7 @@ function handleClick(e: MouseEvent) {
 function handleKeyDown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
         exitInspectMode();
-        chrome.runtime.sendMessage({ type: 'CANCEL_INSPECT' });
+        safeSendMessage({ type: 'CANCEL_INSPECT' });
     }
 }
 

@@ -38,7 +38,8 @@
             "js": [
                 "src/content/index.ts"
             ],
-            "run_at": "document_idle"
+            "run_at": "document_idle",
+            "match_about_blank": false
         }
     ],
     "icons": {

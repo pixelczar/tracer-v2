@@ -1,13 +1,18 @@
 import type { InspectedElement, TechInfo } from '../../shared/types';
+import { safeSendMessagePromise } from '../../shared/chromeUtils';
 
 export async function analyzeElement(el: Element): Promise<InspectedElement> {
     const rect = el.getBoundingClientRect();
 
     // Request screenshot from background
-    const captureResponse = await chrome.runtime.sendMessage({
+    const captureResponse = await safeSendMessagePromise({
         type: 'CAPTURE_ELEMENT',
         rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
     });
+
+    if (!captureResponse) {
+        throw new Error('Failed to capture screenshot: Extension context may be invalidated');
+    }
 
     const { screenshot, rect: captureRect } = JSON.parse(captureResponse);
     const croppedScreenshot = await cropScreenshot(screenshot, captureRect);

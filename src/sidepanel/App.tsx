@@ -9,6 +9,7 @@ import { ThemePicker } from './components/ThemePicker';
 import { IconInspect } from './components/Icons';
 import { DecryptedText } from './components/DecryptedText';
 import type { ScanResult, ScanState, InspectedElement, InspectState } from '../shared/types';
+import { safeSendMessage, safeAddMessageListener, isExtensionContextValid } from '../shared/chromeUtils';
 import logoLight from '../assets/tracer-text-on-light-slashes-00.svg';
 import logoDark from '../assets/tracer-text-on-dark-slashes-00.svg';
 
@@ -79,7 +80,7 @@ function LoadingState({ status, onFinished, theme }: { status: string; onFinishe
                 >
                     <DecryptedText
                         text={status || "Initializing"}
-                        className={`font-medium tracking-[0.1em] ${status === 'Error' ? 'text-red-500 animate-pulse' : 'text-muted/80'}`}
+                        className={`font-medium tracking-[0.1em] ${status === 'Error' ? 'text-red-500' : 'text-muted'}`}
                         onComplete={() => {
                             if (status === 'Complete') {
                                 // Anticipation delay before reveal
@@ -114,6 +115,10 @@ export default function App() {
     }, [theme]);
 
     useEffect(() => {
+        if (!isExtensionContextValid()) {
+            return;
+        }
+
         chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
             if (tab?.url) {
                 try {
@@ -126,11 +131,17 @@ export default function App() {
             if (tab?.favIconUrl) {
                 setCurrentFavicon(tab.favIconUrl);
             }
+        }).catch((err) => {
+            console.warn('[Tracer] Error querying tabs:', err);
         });
     }, []);
 
     useEffect(() => {
-        const handleMessage = (message: { type: string; payload?: unknown }) => {
+        const handleMessage = (message: { type: string; payload?: unknown }, _sender: chrome.runtime.MessageSender, _sendResponse: (response?: any) => void) => {
+            if (!isExtensionContextValid()) {
+                return false;
+            }
+
             switch (message.type) {
                 case 'SCAN_PROGRESS': {
                     const status = (message.payload as { status: string }).status;
@@ -170,10 +181,11 @@ export default function App() {
                     setCursorVisible(false);
                     break;
             }
+            return false;
         };
 
-        chrome.runtime.onMessage.addListener(handleMessage);
-        return () => chrome.runtime.onMessage.removeListener(handleMessage);
+        const removeListener = safeAddMessageListener(handleMessage);
+        return removeListener;
     }, []);
 
     useEffect(() => {
@@ -184,6 +196,12 @@ export default function App() {
 
     const startScan = async () => {
         if (scanningRef.current) return;
+        if (!isExtensionContextValid()) {
+            console.warn('[Tracer] Extension context invalidated, cannot start scan');
+            setScanState('error');
+            setCursorMessage('Error');
+            return;
+        }
         scanningRef.current = true;
 
         setData(null); // Clear data to trigger loading state
@@ -195,8 +213,12 @@ export default function App() {
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             if (tab?.id) {
-                chrome.runtime.sendMessage({ type: 'START_SCAN', tabId: tab.id });
+                safeSendMessage({ type: 'START_SCAN', tabId: tab.id });
             }
+        } catch (err) {
+            console.error('[Tracer] Error starting scan:', err);
+            setScanState('error');
+            setCursorMessage('Error');
         } finally {
             scanningRef.current = false;
         }
@@ -213,23 +235,45 @@ export default function App() {
     }, [data, revealData, scanState]);
 
     const startInspect = async () => {
+        if (!isExtensionContextValid()) {
+            console.warn('[Tracer] Extension context invalidated, cannot start inspect');
+            return;
+        }
+
         setInspectState('selecting');
         setCursorVisible(true);
         setCursorMessage('Target acquisition');
 
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (tab.id) {
-            chrome.runtime.sendMessage({ type: 'START_INSPECT', tabId: tab.id });
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (tab.id) {
+                safeSendMessage({ type: 'START_INSPECT', tabId: tab.id });
+            }
+        } catch (err) {
+            console.error('[Tracer] Error starting inspect:', err);
+            setInspectState('idle');
+            setCursorVisible(false);
         }
     };
 
     const stopInspect = async () => {
+        if (!isExtensionContextValid()) {
+            console.warn('[Tracer] Extension context invalidated, cannot stop inspect');
+            setInspectState('idle');
+            setCursorVisible(false);
+            return;
+        }
+
         setInspectState('idle');
         setCursorVisible(false);
 
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (tab.id) {
-            chrome.runtime.sendMessage({ type: 'STOP_INSPECT', tabId: tab.id });
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (tab.id) {
+                safeSendMessage({ type: 'STOP_INSPECT', tabId: tab.id });
+            }
+        } catch (err) {
+            console.error('[Tracer] Error stopping inspect:', err);
         }
     };
 

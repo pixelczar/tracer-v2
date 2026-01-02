@@ -1,4 +1,5 @@
 import { TECH_PATTERNS } from '../shared/techPatterns';
+import { safeSendMessage, safeSendMessageToTab } from '../shared/chromeUtils';
 
 // Enable side panel to open on action click
 if (chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
@@ -111,33 +112,28 @@ async function detectMainWorld(tabId: number) {
 
 async function ensureContentScriptLoaded(tabId: number): Promise<boolean> {
     try {
-        const response: any = await new Promise((resolve) => {
-            chrome.tabs.sendMessage(tabId, { type: 'PING' }, (resp) => {
-                if (chrome.runtime.lastError) resolve(null);
-                else resolve(resp);
-            });
-        });
+        // Content script is now loaded via manifest but stays inactive
+        // Send PING to activate it and verify it's loaded
+        const response = await safeSendMessageToTab(tabId, { type: 'PING' });
 
-        if (response?.pong) return true;
+        if (response?.pong) {
+            // Content script is loaded and activated
+            return true;
+        }
 
-        // Attempt manual injection if PING failed
-        console.log('[Tracer] Content script missing, attempting manual injection...');
-        await chrome.scripting.executeScript({
-            target: { tabId },
-            files: ['src/content/index.ts'] // Vite will handle this in dev or build
-        });
+        // If PING fails, the content script might not be loaded yet
+        // Wait a bit and try again (content scripts load asynchronously)
+        await new Promise(r => setTimeout(r, 500));
+        const retryResponse = await safeSendMessageToTab(tabId, { type: 'PING' });
+        
+        if (retryResponse?.pong) {
+            return true;
+        }
 
-        // Wait a bit and try PING one last time
-        await new Promise(r => setTimeout(r, 200));
-        const finalResponse: any = await new Promise((resolve) => {
-            chrome.tabs.sendMessage(tabId, { type: 'PING' }, (resp) => {
-                if (chrome.runtime.lastError) resolve(null);
-                else resolve(resp);
-            });
-        });
-        return !!finalResponse?.pong;
+        console.warn('[Tracer] Content script not responding. It may not be loaded on this page yet.');
+        return false;
     } catch (e) {
-        console.error('[Tracer] Injection failed:', e);
+        console.error('[Tracer] Error checking content script:', e);
         return false;
     }
 }
@@ -146,7 +142,7 @@ async function handleScan(tabId: number) {
     const ready = await ensureContentScriptLoaded(tabId);
 
     if (!ready) {
-        chrome.runtime.sendMessage({
+        safeSendMessage({
             type: 'SCAN_ERROR',
             payload: { error: 'Content script not loaded. Please refresh the page.' },
         });
@@ -162,58 +158,50 @@ async function handleScan(tabId: number) {
     const mainWorldResults: any = await detectMainWorld(tabId);
 
     // 3. Content script extraction
-    chrome.tabs.sendMessage(tabId, {
+    const response = await safeSendMessageToTab(tabId, {
         type: 'EXTRACT',
         payload: {
             headers,
             mainWorldGlobals: mainWorldResults.foundGlobals,
             mainWorldVersions: mainWorldResults.versions
         }
-    }, (response) => {
-        if (chrome.runtime.lastError) {
-            chrome.runtime.sendMessage({
-                type: 'SCAN_ERROR',
-                payload: { error: chrome.runtime.lastError.message },
-            });
-            return;
-        }
-        if (response) {
-            chrome.runtime.sendMessage({
-                type: 'SCAN_COMPLETE',
-                payload: response,
-            });
-        } else {
-            chrome.runtime.sendMessage({
-                type: 'SCAN_ERROR',
-                payload: { error: 'Failed to extract page data.' },
-            });
-        }
+    });
+
+    if (!response) {
+        safeSendMessage({
+            type: 'SCAN_ERROR',
+            payload: { error: 'Failed to extract page data. Extension may have been reloaded.' },
+        });
+        return;
+    }
+
+    safeSendMessage({
+        type: 'SCAN_COMPLETE',
+        payload: response,
     });
 }
 
 async function handleInspect(tabId: number) {
     const ready = await ensureContentScriptLoaded(tabId);
     if (!ready) {
-        chrome.runtime.sendMessage({
+        safeSendMessage({
             type: 'INSPECT_ERROR',
             payload: { error: 'Content script not loaded. Please refresh the page.' },
         });
         return;
     }
 
-    chrome.tabs.sendMessage(tabId, { type: 'ENTER_INSPECT_MODE' }, () => {
-        if (chrome.runtime.lastError) {
-            console.error('[Tracer] Error entering inspect mode:', chrome.runtime.lastError.message);
-        }
-    });
+    const response = await safeSendMessageToTab(tabId, { type: 'ENTER_INSPECT_MODE' });
+    if (!response) {
+        console.error('[Tracer] Error entering inspect mode: Extension context may be invalidated');
+    }
 }
 
 async function handleStopInspect(tabId: number) {
-    chrome.tabs.sendMessage(tabId, { type: 'EXIT_INSPECT_MODE' }, () => {
-        if (chrome.runtime.lastError) {
-            console.error('[Tracer] Error exiting inspect mode:', chrome.runtime.lastError.message);
-        }
-    });
+    const response = await safeSendMessageToTab(tabId, { type: 'EXIT_INSPECT_MODE' });
+    if (!response) {
+        console.error('[Tracer] Error exiting inspect mode: Extension context may be invalidated');
+    }
 }
 
 async function handleCapture(_tabId: number, rect: any): Promise<string> {

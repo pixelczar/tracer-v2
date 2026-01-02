@@ -2,6 +2,27 @@ import { extractColors } from './extractors/colors';
 import { extractFonts } from './extractors/fonts';
 import { extractTech } from './extractors/tech';
 import { enterInspectMode, exitInspectMode } from './inspect/highlighter';
+import { safeSendMessage, safeAddMessageListener, isExtensionContextValid } from '../shared/chromeUtils';
+
+// Content script is loaded but stays inactive until activated by extension
+// This prevents it from running on all pages automatically
+let isActivated = false;
+
+// Check if we should activate - only activate if we receive a PING from background
+// This means the extension was explicitly opened by the user
+
+// Global error handler to catch any uncaught extension context errors
+if (typeof window !== 'undefined') {
+    window.addEventListener('error', (event) => {
+        const errorMsg = event.message || String(event.error);
+        if (errorMsg.includes('Extension context invalidated') ||
+            errorMsg.includes('message port closed')) {
+            // Suppress these errors - they're expected when extension reloads
+            event.preventDefault();
+            return false;
+        }
+    }, true);
+}
 
 // Create cursor bubble overlay on the page
 let cursorBubble: HTMLElement | null = null;
@@ -89,16 +110,26 @@ function updateCursorMessage(message: string) {
 }
 
 // Message listener
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    console.log('[Tracer] Content script received message:', message.type);
+safeAddMessageListener((message, _sender, sendResponse) => {
+    if (!isExtensionContextValid()) {
+        return false;
+    }
 
     switch (message.type) {
         case 'PING':
+            // Activate on first ping (when extension is opened)
+            isActivated = true;
             // Respond to ping to confirm content script is loaded
             sendResponse({ pong: true });
             return true;
 
         case 'EXTRACT':
+            // Only process if activated
+            if (!isActivated) {
+                sendResponse(null);
+                return false;
+            }
+            console.log('[Tracer] Content script received message:', message.type);
             showCursorBubble('Scanning');
             runFullExtraction(message.payload).then((result) => {
                 updateCursorMessage('Complete');
@@ -112,6 +143,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             return true;
 
         case 'ENTER_INSPECT_MODE':
+            // Only process if activated
+            if (!isActivated) {
+                sendResponse({ ok: false });
+                return false;
+            }
+            console.log('[Tracer] Content script received message:', message.type);
             showCursorBubble('Target acquisition');
             enterInspectMode((element) => {
                 updateCursorMessage('Analyzing');
@@ -121,7 +158,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
                         updateCursorMessage('Captured');
                         exitInspectMode(); // Force exit immediately
                         setTimeout(() => hideCursorBubble(), 500);
-                        chrome.runtime.sendMessage({ type: 'INSPECT_COMPLETE', payload: result });
+                        safeSendMessage({ type: 'INSPECT_COMPLETE', payload: result });
                     }).catch((err) => {
                         console.error('[Tracer] Analyze error:', err);
                         exitInspectMode();
@@ -133,22 +170,38 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             return true;
 
         case 'EXIT_INSPECT_MODE':
+            if (!isActivated) {
+                sendResponse({ ok: false });
+                return false;
+            }
             hideCursorBubble();
             exitInspectMode();
             sendResponse({ ok: true });
             return true;
 
         case 'SHOW_CURSOR':
+            if (!isActivated) {
+                sendResponse({ ok: false });
+                return false;
+            }
             showCursorBubble(message.message || '');
             sendResponse({ ok: true });
             return true;
 
         case 'HIDE_CURSOR':
+            if (!isActivated) {
+                sendResponse({ ok: false });
+                return false;
+            }
             hideCursorBubble();
             sendResponse({ ok: true });
             return true;
 
         case 'UPDATE_CURSOR':
+            if (!isActivated) {
+                sendResponse({ ok: false });
+                return false;
+            }
             updateCursorMessage(message.message || '');
             sendResponse({ ok: true });
             return true;
@@ -161,13 +214,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 async function runFullExtraction(payload: any = {}) {
     console.log('[Tracer] Running full extraction');
 
-    chrome.runtime.sendMessage({ type: 'SCAN_PROGRESS', payload: { status: 'Analyzing Colors' } });
+    safeSendMessage({ type: 'SCAN_PROGRESS', payload: { status: 'Analyzing Colors' } });
     const colors = await extractColors();
 
-    chrome.runtime.sendMessage({ type: 'SCAN_PROGRESS', payload: { status: 'Tracing Typography' } });
+    safeSendMessage({ type: 'SCAN_PROGRESS', payload: { status: 'Tracing Typography' } });
     const fonts = await extractFonts();
 
-    chrome.runtime.sendMessage({ type: 'SCAN_PROGRESS', payload: { status: 'Detecting Tech' } });
+    safeSendMessage({ type: 'SCAN_PROGRESS', payload: { status: 'Detecting Tech' } });
     const tech = await extractTech({
         headers: payload.headers,
         mainWorldGlobals: payload.mainWorldGlobals,
@@ -203,5 +256,6 @@ function getOGImage(): string | undefined {
     return meta?.content;
 }
 
-// Log that content script loaded
-console.log('[Tracer] Content script loaded on', window.location.hostname);
+// Content script loads but stays inactive until activated by extension
+// This prevents it from running on all pages automatically
+// It will only activate when the user clicks the extension icon
