@@ -150,12 +150,17 @@ function FontItem({ font, index, globalPangramIndex }: { font: FontInfo; index: 
                                     <style>{`@font-face { font-family: '${font.family}-preview'; src: url('${font.preview.data}'); }`}</style>
                                 )}
                                 <p
-                                    className="text-[36px] pb-2 leading-[1.05] tracking-tight whitespace-normal break-words max-w-[300px] line-clamp-2 overflow-hidden text-ellipsis"
+                                    className="text-[36px] pb-2 leading-[1.05] tracking-tight whitespace-normal break-words max-w-[300px]"
                                     style={{
                                         fontFamily: font.preview.method === 'datauri'
                                             ? `'${font.family}-preview', sans-serif`
                                             : `'${font.family}', sans-serif`,
-                                        fontWeight: activeWeight
+                                        fontWeight: activeWeight,
+                                        display: '-webkit-box',
+                                        WebkitLineClamp: 2,
+                                        WebkitBoxOrient: 'vertical',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis'
                                     }}
                                 >
                                     {currentPangram}

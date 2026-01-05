@@ -75,8 +75,8 @@ export function ColorSection({ colors, maxColors = 8, maxLarge = 2 }: Props) {
             }
           }
         }}
-        className="grid grid-cols-8 gap-2"
-        style={{ gridAutoRows: '32px' }}
+        className="grid grid-cols-9 gap-1.5"
+        style={{ gridAutoRows: '24px' }}
       >
         {sorted.map((color) => {
           // Determine if this should be a large swatch
