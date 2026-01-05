@@ -6,7 +6,7 @@ interface ScrambleTextProps {
     trigger?: boolean;
 }
 
-export function ScrambleText({ text, duration = 200, trigger = true }: ScrambleTextProps) {
+export function ScrambleText({ text, duration = 300, trigger = true }: ScrambleTextProps) {
     const [display, setDisplay] = useState(text);
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+';
 

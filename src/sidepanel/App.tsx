@@ -17,16 +17,23 @@ import logoDark from '../assets/tracer-text-on-dark-slashes-00.svg';
 // High-end easing for that premium feel
 const sexyEase = [0.16, 1, 0.3, 1] as const;
 
-function SectionHeader({ text }: { text: string }) {
+function SectionWrapper({ children }: { children: (isHovered: boolean) => React.ReactNode }) {
     const [isHovered, setIsHovered] = useState(false);
-
+    
     return (
-        <h2 
-            className="text-[12px] text-muted mb-4"
+        <div
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            <ScrambleText text={text} trigger={isHovered} />
+            {children(isHovered)}
+        </div>
+    );
+}
+
+function SectionHeader({ text, isSectionHovered }: { text: string; isSectionHovered: boolean }) {
+    return (
+        <h2 className="text-[12px] text-muted mb-4">
+            <ScrambleText text={text} trigger={isSectionHovered} />
         </h2>
     );
 }
@@ -95,7 +102,7 @@ function LoadingState({ status, onFinished }: { status: string; onFinished?: () 
                 >
                     <DecryptedText
                         text={status || "Initializing"}
-                        className={`font-medium tracking-[0.1em] ${status === 'Error' ? 'text-red-500' : 'text-muted'}`}
+                        className={`font-medium tracking-[0.1em] ${status?.includes('ERROR') ? 'text-red-500' : status === 'Error' ? 'text-red-500' : 'text-muted'}`}
                         onComplete={() => {
                             if (status === 'Complete') {
                                 // Anticipation delay before reveal
@@ -123,6 +130,8 @@ export default function App() {
     const [cursorVisible, setCursorVisible] = useState(false);
     const [isHovering, setIsHovering] = useState(false);
     const [revealData, setRevealData] = useState(false);
+    const retryRef = useRef(false);
+    const startScanRef = useRef<() => Promise<void>>();
 
     useEffect(() => {
         document.documentElement.dataset.theme = theme;
@@ -160,7 +169,7 @@ export default function App() {
                 case 'SCAN_PROGRESS': {
                     const status = (message.payload as { status: string }).status;
                     setCursorMessage(prev => {
-                        if (prev === 'Complete' || prev === 'Error') return prev;
+                        if (prev === 'Complete' || prev === 'Error' || prev?.includes('ERROR')) return prev;
                         // Avoid repeats or backward status if somehow they arrive out of order
                         if (prev === status) return prev;
                         return status;
@@ -175,8 +184,8 @@ export default function App() {
                     break;
                 case 'SCAN_ERROR':
                     setScanState('error');
-                    setCursorMessage('Error');
-                    setTimeout(() => setCursorVisible(false), 2000);
+                    setCursorMessage('ERROR, retrying');
+                    setCursorVisible(true);
                     break;
                 case 'INSPECT_COMPLETE':
                     if (message.payload) {
@@ -213,7 +222,8 @@ export default function App() {
         if (!isExtensionContextValid()) {
             console.warn('[Tracer] Extension context invalidated, cannot start scan');
             setScanState('error');
-            setCursorMessage('Error');
+            setCursorMessage('ERROR, retrying');
+            setCursorVisible(true);
             return;
         }
         scanningRef.current = true;
@@ -232,11 +242,17 @@ export default function App() {
         } catch (err) {
             console.error('[Tracer] Error starting scan:', err);
             setScanState('error');
-            setCursorMessage('Error');
+            setCursorMessage('ERROR, retrying');
+            setCursorVisible(true);
         } finally {
             scanningRef.current = false;
         }
     };
+
+    // Keep ref updated with latest startScan function
+    useEffect(() => {
+        startScanRef.current = startScan;
+    }, [startScan]);
 
     // Safety check: If data is available but loading screen is stuck, force reveal
     useEffect(() => {
@@ -247,6 +263,67 @@ export default function App() {
             return () => clearTimeout(timer);
         }
     }, [data, revealData, scanState]);
+
+    // Handle error: refresh tab and retry
+    useEffect(() => {
+        if (scanState === 'error' && !retryRef.current) {
+            retryRef.current = true;
+            
+            const handleErrorRetry = async () => {
+                if (!isExtensionContextValid()) {
+                    retryRef.current = false;
+                    return;
+                }
+
+                try {
+                    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+                    if (tab?.id) {
+                        // Update message to show we're refreshing
+                        setCursorMessage('ERROR, REFRESHING PAGE...');
+                        
+                        // Refresh the tab
+                        await chrome.tabs.reload(tab.id);
+                        
+                        // Wait for the page to load - listen for tab update
+                        const onTabUpdated = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
+                            if (tabId === tab.id && changeInfo.status === 'complete') {
+                                chrome.tabs.onUpdated.removeListener(onTabUpdated);
+                                
+                                // Wait a bit more for scripts to initialize, then retry
+                                setTimeout(() => {
+                                    retryRef.current = false;
+                                    setCursorMessage('Retrying scan...');
+                                    startScanRef.current?.();
+                                }, 1500);
+                            }
+                        };
+                        
+                        chrome.tabs.onUpdated.addListener(onTabUpdated);
+                        
+                        // Fallback timeout in case the page doesn't fire 'complete' status
+                        setTimeout(() => {
+                            chrome.tabs.onUpdated.removeListener(onTabUpdated);
+                            if (retryRef.current) {
+                                retryRef.current = false;
+                                setCursorMessage('Retrying scan...');
+                                startScanRef.current?.();
+                            }
+                        }, 10000);
+                    } else {
+                        retryRef.current = false;
+                    }
+                } catch (err) {
+                    console.error('[Tracer] Error refreshing tab:', err);
+                    retryRef.current = false;
+                    setCursorMessage('ERROR, RETRYING');
+                }
+            };
+
+            // Small delay before retrying to show the error message
+            const timer = setTimeout(handleErrorRetry, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [scanState]);
 
     const startInspect = async () => {
         if (!isExtensionContextValid()) {
@@ -411,70 +488,88 @@ export default function App() {
 
                                     {/* Colors */}
                                     {data.colors.length > 0 && (
-                                        <motion.section
-                                            variants={{
-                                                hidden: { opacity: 0, y: 6 },
-                                                show: { opacity: 1, y: 0 }
-                                            }}
-                                            transition={{ duration: 1.2, ease: sexyEase }}
-                                            className="group"
-                                        >
-                                            <SectionHeader text="Colors" />
-                                            <ColorSection colors={data.colors} />
-                                        </motion.section>
+                                        <SectionWrapper>
+                                            {(isHovered) => (
+                                                <motion.section
+                                                    variants={{
+                                                        hidden: { opacity: 0, y: 6 },
+                                                        show: { opacity: 1, y: 0 }
+                                                    }}
+                                                    transition={{ duration: 1.2, ease: sexyEase }}
+                                                    className="group"
+                                                >
+                                                    <SectionHeader text="Colors" isSectionHovered={isHovered} />
+                                                    <ColorSection colors={data.colors} />
+                                                </motion.section>
+                                            )}
+                                        </SectionWrapper>
                                     )}
 
                                     {/* Typography */}
                                     {data.fonts.length > 0 && (
-                                        <motion.section
-                                            variants={{
-                                                hidden: { opacity: 0, y: 6 },
-                                                show: { opacity: 1, y: 0 }
-                                            }}
-                                            transition={{ duration: 1.2, ease: sexyEase }}
-                                        >
-                                            <SectionHeader text="Typography" />
-                                            <TypographySection fonts={data.fonts} />
-                                        </motion.section>
+                                        <SectionWrapper>
+                                            {(isHovered) => (
+                                                <motion.section
+                                                    variants={{
+                                                        hidden: { opacity: 0, y: 6 },
+                                                        show: { opacity: 1, y: 0 }
+                                                    }}
+                                                    transition={{ duration: 1.2, ease: sexyEase }}
+                                                    className="group"
+                                                >
+                                                    <SectionHeader text="Typography" isSectionHovered={isHovered} />
+                                                    <TypographySection fonts={data.fonts} />
+                                                </motion.section>
+                                            )}
+                                        </SectionWrapper>
                                     )}
 
                                     {/* Tech */}
                                     {data.tech.length > 0 && (
-                                        <motion.section
-                                            variants={{
-                                                hidden: { opacity: 0, y: 6 },
-                                                show: { opacity: 1, y: 0 }
-                                            }}
-                                            transition={{ duration: 1.2, ease: sexyEase }}
-                                        >
-                                            <SectionHeader text="Tech" />
-                                            <TechSection tech={data.tech} />
-                                        </motion.section>
+                                        <SectionWrapper>
+                                            {(isHovered) => (
+                                                <motion.section
+                                                    variants={{
+                                                        hidden: { opacity: 0, y: 6 },
+                                                        show: { opacity: 1, y: 0 }
+                                                    }}
+                                                    transition={{ duration: 1.2, ease: sexyEase }}
+                                                    className="group"
+                                                >
+                                                    <SectionHeader text="Tech" isSectionHovered={isHovered} />
+                                                    <TechSection tech={data.tech} />
+                                                </motion.section>
+                                            )}
+                                        </SectionWrapper>
                                     )}
 
                                     {/* OG Image */}
                                     {data.ogImage && (
-                                        <motion.section
-                                            variants={{
-                                                hidden: { opacity: 0, y: 6 },
-                                                show: { opacity: 1, y: 0 }
-                                            }}
-                                            transition={{ duration: 1.2, ease: sexyEase }}
-                                            className="group"
-                                        >
-                                            <SectionHeader text="Metadata" />
-                                            <motion.div
-                                                className="group relative aspect-[1.91/1] w-full overflow-hidden rounded-xl border border-faint bg-subtle box-border transition-colors cursor-zoom-in"
-                                                onClick={() => data.ogImage && window.open(data.ogImage, '_blank')}
-                                            >
-                                                <img
-                                                    src={data.ogImage}
-                                                    alt="Page Open Graph"
-                                                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                                                />
-                                                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                                            </motion.div>
-                                        </motion.section>
+                                        <SectionWrapper>
+                                            {(isHovered) => (
+                                                <motion.section
+                                                    variants={{
+                                                        hidden: { opacity: 0, y: 6 },
+                                                        show: { opacity: 1, y: 0 }
+                                                    }}
+                                                    transition={{ duration: 1.2, ease: sexyEase }}
+                                                    className="group"
+                                                >
+                                                    <SectionHeader text="Metadata" isSectionHovered={isHovered} />
+                                                    <motion.div
+                                                        className="group relative aspect-[1.91/1] w-full overflow-hidden rounded-xl border border-faint bg-subtle box-border transition-colors cursor-zoom-in"
+                                                        onClick={() => data.ogImage && window.open(data.ogImage, '_blank')}
+                                                    >
+                                                        <img
+                                                            src={data.ogImage}
+                                                            alt="Page Open Graph"
+                                                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                                        />
+                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                    </motion.div>
+                                                </motion.section>
+                                            )}
+                                        </SectionWrapper>
                                     )}
                                 </motion.div>
                             ) : null}

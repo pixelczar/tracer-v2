@@ -224,7 +224,8 @@ async function runFullExtraction(payload: any = {}) {
     const tech = await extractTech({
         headers: payload.headers,
         mainWorldGlobals: payload.mainWorldGlobals,
-        mainWorldVersions: payload.mainWorldVersions
+        mainWorldVersions: payload.mainWorldVersions,
+        cookies: document.cookie
     });
 
     console.log('[Tracer] Extraction complete:', { colors: colors.length, fonts: fonts.length, tech: tech.length });

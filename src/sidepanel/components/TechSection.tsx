@@ -37,31 +37,33 @@ export function TechSection({ tech }: Props) {
     );
 
     return (
-        <motion.div
-            initial="hidden"
-            animate="show"
-            variants={{
-                show: {
-                    transition: {
-                        staggerChildren: 0.08,
-                        delayChildren: 0.4
+        <div className="tech-container">
+            <motion.div
+                initial="hidden"
+                animate="show"
+                variants={{
+                    show: {
+                        transition: {
+                            staggerChildren: 0.08,
+                            delayChildren: 0.4
+                        }
                     }
-                }
-            }}
-            className="flex flex-col"
-        >
-            {allSortedTech.map((t) => (
-                <motion.div
-                    key={t.name}
-                    variants={{
-                        hidden: { opacity: 0, y: 6 },
-                        show: { opacity: 1, y: 0 }
-                    }}
-                    transition={{ duration: 0.6, ease: sexyEase }}
-                >
-                    <TechItem tech={t} />
-                </motion.div>
-            ))}
-        </motion.div>
+                }}
+                className="tech-grid overflow-hidden"
+            >
+                {allSortedTech.map((t) => (
+                    <motion.div
+                        key={t.name}
+                        variants={{
+                            hidden: { opacity: 0, y: 6 },
+                            show: { opacity: 1, y: 0 }
+                        }}
+                        transition={{ duration: 0.6, ease: sexyEase }}
+                    >
+                        <TechItem tech={t} />
+                    </motion.div>
+                ))}
+            </motion.div>
+        </div>
     );
 }

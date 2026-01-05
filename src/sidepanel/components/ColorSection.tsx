@@ -97,7 +97,7 @@ export function ColorSection({ colors, maxColors = 8, maxLarge = 2 }: Props) {
               }}
               transition={{ duration: 0.7, ease: sexyEase }}
               className={`
-                relative cursor-pointer group rounded-md border border-white/5
+                relative cursor-pointer group rounded-sm border border-white/5
                 ${shouldBeLarge ? 'col-span-2 row-span-2' : ''}
                 ${color.weight === 2 && !shouldBeLarge ? 'col-span-2' : ''}
               `}

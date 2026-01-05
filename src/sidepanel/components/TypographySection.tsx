@@ -122,7 +122,7 @@ function FontItem({ font, index, globalPangramIndex }: { font: FontInfo; index: 
             </div>
 
             {/* Specimen - Smoother easing, fade out down, fade in up */}
-            <div className="py-4 border-b border-faint overflow-hidden min-h-[90px] relative">
+            <div className="pt-4 pb-6 border-b border-faint overflow-hidden min-h-[90px] relative">
                 <AnimatePresence mode="wait" initial={false}>
                     <motion.div
                         key={`${pangramIndex}-${activeWeight}`}
@@ -150,7 +150,7 @@ function FontItem({ font, index, globalPangramIndex }: { font: FontInfo; index: 
                                     <style>{`@font-face { font-family: '${font.family}-preview'; src: url('${font.preview.data}'); }`}</style>
                                 )}
                                 <p
-                                    className="text-[36px] pb-2 leading-[1.05] tracking-tight whitespace-normal break-words max-w-[300px]"
+                                    className="text-[36px] leading-[1.05] tracking-tight max-w-[300px]"
                                     style={{
                                         fontFamily: font.preview.method === 'datauri'
                                             ? `'${font.family}-preview', sans-serif`
@@ -160,7 +160,12 @@ function FontItem({ font, index, globalPangramIndex }: { font: FontInfo; index: 
                                         WebkitLineClamp: 2,
                                         WebkitBoxOrient: 'vertical',
                                         overflow: 'hidden',
-                                        textOverflow: 'ellipsis'
+                                        textOverflow: 'ellipsis',
+                                        wordBreak: 'break-word',
+                                        whiteSpace: 'normal',
+                                        maxHeight: 'calc(1.05em * 2.2)',
+                                        lineHeight: '1.05',
+                                        paddingBottom: '0.2em'
                                     }}
                                 >
                                     {currentPangram}

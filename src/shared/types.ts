@@ -70,7 +70,9 @@ export type TechCategory =
     // Rich Content & Media
     | 'forms' | 'rich-text' | 'code-display' | 'markdown' | 'maps' | 'audio' | 'notifications'
     // Miscellaneous
-    | 'pwa' | 'accessibility' | 'i18n' | 'seo' | 'social' | 'realtime' | 'search' | 'feedback' | 'collaboration' | 'misc';
+    | 'pwa' | 'accessibility' | 'i18n' | 'seo' | 'social' | 'realtime' | 'search' | 'feedback' | 'collaboration' | 'misc'
+    // AI Generated
+    | 'ai-generated';
 
 export const TECH_CATEGORY_META: Record<TechCategory, { label: string; group: string }> = {
     // Frontend
@@ -152,6 +154,8 @@ export const TECH_CATEGORY_META: Record<TechCategory, { label: string; group: st
     'feedback': { label: 'Feedback', group: 'Misc' },
     'collaboration': { label: 'Collab', group: 'Misc' },
     'misc': { label: 'Other', group: 'Misc' },
+    // AI Generated
+    'ai-generated': { label: 'AI Built', group: 'AI' },
 };
 
 export interface InspectedElement {
