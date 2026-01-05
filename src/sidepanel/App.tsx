@@ -190,7 +190,7 @@ export default function App() {
                 case 'INSPECT_COMPLETE':
                     if (message.payload) {
                         setInspectedElement(message.payload as InspectedElement);
-                        setInspectState('analyzing');
+                        setInspectState('complete');
                         setCursorMessage('Captured');
                         setTimeout(() => setCursorVisible(false), 1000);
                     }
@@ -443,6 +443,27 @@ export default function App() {
                     </header>
 
                     <main className="flex-1 px-4 py-4 flex flex-col gap-10 overflow-y-scroll relative">
+                        {/* Inspected Element - Renders independently of scan data */}
+                        <AnimatePresence>
+                            {(inspectedElement || inspectState === 'analyzing' || inspectState === 'complete') && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 12 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.98 }}
+                                    transition={{ duration: 0.5, ease: sexyEase }}
+                                >
+                                    <InspectedElementCard
+                                        element={inspectedElement}
+                                        loading={inspectState === 'analyzing'}
+                                        onClose={() => {
+                                            setInspectedElement(null);
+                                            setInspectState('idle');
+                                        }}
+                                    />
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
                         <AnimatePresence mode="wait">
                             {!revealData ? (
                                 <LoadingState
@@ -463,28 +484,8 @@ export default function App() {
                                             }
                                         }
                                     }}
-                                    className="flex flex-col gap-10"
+                                    className="flex flex-col gap-6"
                                 >
-                                    {/* Inspected Element */}
-                                    <AnimatePresence>
-                                        {(inspectedElement || inspectState === 'analyzing') && (
-                                            <motion.div
-                                                initial={{ opacity: 0, y: 12 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                exit={{ opacity: 0, scale: 0.98 }}
-                                                transition={{ duration: 0.5, ease: sexyEase }}
-                                            >
-                                                <InspectedElementCard
-                                                    element={inspectedElement}
-                                                    loading={inspectState === 'analyzing'}
-                                                    onClose={() => {
-                                                        setInspectedElement(null);
-                                                        setInspectState('idle');
-                                                    }}
-                                                />
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
 
                                     {/* Colors */}
                                     {data.colors.length > 0 && (
@@ -534,7 +535,7 @@ export default function App() {
                                                         show: { opacity: 1, y: 0 }
                                                     }}
                                                     transition={{ duration: 1.2, ease: sexyEase }}
-                                                    className="group"
+                                                    className=""
                                                 >
                                                     <SectionHeader text="Tech" isSectionHovered={isHovered} />
                                                     <TechSection tech={data.tech} />

@@ -6,6 +6,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Vue.js': 'Vue.js.svg',
     'Svelte': 'Svelte.svg',
     'Angular': 'Angular.svg',
+    'AngularJS': 'Angular.svg',
     'Solid': 'Solid.svg',
     'Preact': 'Preact.svg',
     'Alpine.js': 'Alpine.js.svg',
@@ -22,6 +23,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Astro': 'Astro.svg',
     'SvelteKit': 'SvelteKit.svg',
     'Gatsby': 'Gatsby.svg',
+    'SolidStart': 'Solid.svg',
 
     // UI Frameworks
     'Material UI': 'Material UI.svg',
@@ -35,6 +37,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Headless UI': 'HeadlessUI.svg',
     'NextUI': 'NextUI.svg',
     'Blueprint': 'Blueprint.svg',
+    'HeroUI': 'NextUI.svg',
 
     // JS Libraries
     'Redux': 'Redux.svg',
@@ -50,6 +53,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Turbo': 'Turbo.svg',
     'React Router': 'React Router.svg',
     'core-js': 'core-js.svg',
+    'lit-html': 'Lit.svg',
 
     // Styling
     'Tailwind CSS': 'Tailwind CSS.svg',
@@ -59,6 +63,8 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Emotion': 'Emotion.svg',
     'Stitches': 'Stitches.svg',
     'Primer CSS': 'Primer.svg',
+    'Vanilla Extract': 'Vite.svg',
+    'Panda CSS': 'Vite.svg',
 
     // Font Services
     'Google Fonts': 'Google Fonts.svg',
@@ -106,6 +112,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Highcharts': 'Highcharts.svg',
     'ApexCharts': 'ApexCharts.svg',
     'Plotly': 'Plotly.svg',
+    'Observable': 'Observable.svg',
 
     // CMS
     'WordPress': 'WordPress.svg',
@@ -114,6 +121,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Strapi': 'Strapi.svg',
     'Prismic': 'Prismic.svg',
     'Ghost': 'Ghost.svg',
+    // Note: Missing icons will use Tracer logo as placeholder in TechItem component
 
     // E-commerce
     'Shopify': 'Shopify.svg',
@@ -151,6 +159,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'LogRocket': 'LogRocket.svg',
     'Clarity': 'Microsoft Clarity.svg',
     'LinkedIn Insight Tag': 'LinkedIn.svg',
+    'Microsoft Power BI': 'Microsoft Clarity.svg',
 
     // A/B Testing
     'Optimizely': 'Optimizely.svg',
@@ -221,6 +230,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Rollbar': 'Rollbar.svg',
     'Highlight': 'Highlight.svg',
     'New Relic': 'New Relic.svg',
+    'Cloudflare Browser Insights': 'Cloudflare.svg',
 
     // Security
     'HSTS': 'HSTS.svg',
@@ -248,6 +258,10 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Parcel': 'Parcel.svg',
     'TypeScript': 'TypeScript.svg',
     'Babel': 'Babel.svg',
+    'Play': 'Vite.svg',
+    'Scala': 'Vite.svg',
+    'Java': 'Vite.svg',
+    'WebSocket': 'Socket.io.svg',
 
     // Maps
     'Google Maps': 'Google Maps.svg',

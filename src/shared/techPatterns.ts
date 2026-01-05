@@ -37,6 +37,7 @@ export const TECH_PATTERNS: TechPattern[] = [
     { name: 'Vue.js', category: 'js-framework', url: 'https://vuejs.org', isSignal: false, patterns: { globals: ['Vue', '__VUE__', '__VUE_DEVTOOLS_GLOBAL_HOOK__'], dom: ['[data-v-]'] }, versionGlobal: 'Vue.version' },
     { name: 'Svelte', category: 'js-framework', url: 'https://svelte.dev', isSignal: true, patterns: { globals: ['__svelte'], dom: ['[class*="svelte-"]'] } },
     { name: 'Angular', category: 'js-framework', url: 'https://angular.io', isSignal: false, patterns: { globals: ['ng'], dom: ['[ng-version]', '[_ngcontent-]'] } },
+    { name: 'AngularJS', category: 'js-framework', url: 'https://angularjs.org', isSignal: false, patterns: { globals: ['angular'], scripts: [/angular\.js/, /angularjs/], dom: ['[ng-app]', '[ng-controller]', '[ng-model]'] }, excludes: ['Angular'] },
     { name: 'Solid', category: 'js-framework', url: 'https://solidjs.com', isSignal: true, patterns: { globals: ['_$HY', 'Solid'] } },
     { name: 'Preact', category: 'js-framework', url: 'https://preactjs.com', isSignal: false, patterns: { globals: ['preact', '__PREACT_DEVTOOLS__'] } },
     { name: 'Alpine.js', category: 'js-framework', url: 'https://alpinejs.dev', isSignal: true, patterns: { globals: ['Alpine'], dom: ['[x-data]', '[x-init]'] } },
@@ -152,6 +153,13 @@ export const TECH_PATTERNS: TechPattern[] = [
     { name: 'Strapi', category: 'cms', url: 'https://strapi.io', isSignal: true, patterns: { globals: ['strapi'], meta: [{ name: 'generator', content: /Strapi/i }] } },
     { name: 'Prismic', category: 'cms', url: 'https://prismic.io', isSignal: false, patterns: { scripts: [/prismic\.io/] } },
     { name: 'Ghost', category: 'cms', url: 'https://ghost.org', isSignal: false, patterns: { meta: [{ name: 'generator', content: /Ghost/i }] } },
+    { name: 'Drupal', category: 'cms', url: 'https://drupal.org', isSignal: false, patterns: { meta: [{ name: 'generator', content: /Drupal/i }], scripts: [/\/sites\/.*\/files\//, /\/modules\//, /\/themes\//], cookies: [{ name: /^SESS/i }, { name: /^SSESS/i }], dom: ['[data-drupal-]'] } },
+    { name: 'Joomla', category: 'cms', url: 'https://joomla.org', isSignal: false, patterns: { meta: [{ name: 'generator', content: /Joomla/i }], scripts: [/\/media\/joomla/, /\/components\//], cookies: [{ name: /^joomla/i }], dom: ['[class*="joomla"]'] } },
+    { name: 'Craft CMS', category: 'cms', url: 'https://craftcms.com', isSignal: true, patterns: { meta: [{ name: 'generator', content: /Craft CMS/i }], scripts: [/craftcms/, /\/cpresources\//], cookies: [{ name: 'CraftSessionId' }] } },
+    { name: 'Payload', category: 'cms', url: 'https://payloadcms.com', isSignal: true, patterns: { scripts: [/payloadcms/, /\/api\//], globals: ['payload'] } },
+    { name: 'Directus', category: 'cms', url: 'https://directus.io', isSignal: true, patterns: { scripts: [/directus/, /\/directus\//], globals: ['directus'] } },
+    { name: 'Keystone', category: 'cms', url: 'https://keystonejs.com', isSignal: true, patterns: { scripts: [/keystone/, /keystonejs/], globals: ['keystone'] } },
+    { name: 'Format', category: 'cms', url: 'https://format.com', isSignal: false, patterns: { scripts: [/format\.com/, /formatcdn\.com/], url: [/\.format\.com$/], meta: [{ name: 'generator', content: /Format/i }] } },
 
     // E-commerce
     { name: 'Shopify', category: 'ecommerce', url: 'https://shopify.com', isSignal: false, patterns: { globals: ['Shopify'], scripts: [/cdn\.shopify\.com/], cookies: [{ name: '_shopify_s' }, { name: 'cart_currency' }] } },
@@ -229,7 +237,7 @@ export const TECH_PATTERNS: TechPattern[] = [
 
     { name: 'Cloudflare', category: 'cdn', url: 'https://cloudflare.com', isSignal: false, patterns: { headers: [{ name: 'cf-ray' }, { name: 'server', value: /cloudflare/i }], cookies: [{ name: '__cf_bm' }, { name: 'cf_clearance' }] } },
     { name: 'Fastly', category: 'cdn', url: 'https://fastly.com', isSignal: false, patterns: { headers: [{ name: 'x-served-by', value: /cache/ }, { name: 'server', value: /fastly/i }] } },
-    { name: 'Amazon Web Services', category: 'paas', url: 'https://aws.amazon.com', isSignal: false, patterns: { headers: [{ name: 'x-amz-cf-id' }, { name: 'x-amz-request-id' }] } },
+    { name: 'Amazon Web Services', category: 'paas', url: 'https://aws.amazon.com', isSignal: false, patterns: { headers: [{ name: 'x-amz-cf-id' }, { name: 'x-amz-request-id' }, { name: 'x-amzn-requestid' }, { name: 'x-amzn-trace-id' }, { name: 'server', value: /AmazonS3|CloudFront|ELB/i }], scripts: [/\.amazonaws\.com/, /aws\.amazon\.com/, /amazonaws\.com/], cookies: [{ name: /^AWS/i }, { name: /^aws/i }] } },
     { name: 'Amazon CloudFront', category: 'cdn', url: 'https://aws.amazon.com/cloudfront/', isSignal: false, patterns: { scripts: [/cloudfront\.net/], headers: [{ name: 'x-amz-cf-id' }] } },
     { name: 'Amazon S3', category: 'cdn', url: 'https://aws.amazon.com/s3/', isSignal: false, patterns: { scripts: [/s3\.amazonaws\.com/], headers: [{ name: 'server', value: /AmazonS3/i }, { name: 'x-amz-request-id' }] } },
     { name: 'Azure Edge Network', category: 'cdn', url: 'https://azure.microsoft.com', isSignal: false, patterns: { headers: [{ name: 'x-azure-ref', value: /^0\.[A-Z0-9]+/ }, { name: 'server', value: /Microsoft-HTTPAPI/i }] } },
@@ -346,6 +354,7 @@ export const TECH_PATTERNS: TechPattern[] = [
     { name: 'Scala', category: 'programming-lang', url: 'https://www.scala-lang.org', isSignal: false, patterns: { headers: [{ name: 'x-powered-by', value: /Scala/i }] } },
     { name: 'Java', category: 'programming-lang', url: 'https://www.java.com', isSignal: false, patterns: { headers: [{ name: 'x-powered-by', value: /Java/i }, { name: 'set-cookie', value: /JSESSIONID/i }] } },
     { name: 'New Relic', category: 'rum', url: 'https://newrelic.com', isSignal: false, patterns: { globals: ['newrelic', 'NREUM'], scripts: [/js-agent\.newrelic\.com/] } },
+    { name: 'Cloudflare Browser Insights', category: 'rum', url: 'https://developers.cloudflare.com/analytics/web-analytics/', isSignal: false, patterns: { scripts: [/cloudflareinsights\.com/, /\/cdn-cgi\/rum/], headers: [{ name: 'cf-ray' }] }, requires: ['Cloudflare'] },
     { name: 'Cloudflare Bot Management', category: 'security', url: 'https://www.cloudflare.com/products/bot-management/', isSignal: false, patterns: { headers: [{ name: 'server', value: /cloudflare/i }], dom: ['script[src*="/cdn-cgi/challenge-platform/"]'] } },
     { name: 'Priority Hints', category: 'performance', url: 'https://web.dev/priority-hints/', isSignal: false, patterns: { dom: ['[fetchpriority]'] } },
     { name: 'HTTP/3', category: 'performance', url: 'https://en.wikipedia.org/wiki/HTTP/3', isSignal: false, patterns: { headers: [{ name: 'alt-svc', value: /h3/ }] } },
@@ -935,7 +944,7 @@ export const TECH_PATTERNS: TechPattern[] = [
     },
     {
         name: 'Notion Sites',
-        category: 'ai-generated',
+        category: 'site-builder',
         url: 'https://notion.so',
         isSignal: false,
         patterns: {
@@ -1330,7 +1339,7 @@ export const TECH_PATTERNS: TechPattern[] = [
     },
     {
         name: 'Observable',
-        category: 'ai-generated',
+        category: 'dataviz',
         url: 'https://observablehq.com',
         isSignal: true,
         patterns: {

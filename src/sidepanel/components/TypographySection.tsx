@@ -18,14 +18,8 @@ interface Props {
 }
 
 export function TypographySection({ fonts }: Props) {
-    const [globalPangramIndex, setGlobalPangramIndex] = useState(0);
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setGlobalPangramIndex((prev) => (prev + 1) % PANGRAMS.length);
-        }, 8000);
-        return () => clearInterval(interval);
-    }, []);
+    // Use a consistent pangram for the entire session
+    const [sessionPangram] = useState(() => PANGRAMS[0]);
 
     return (
         <motion.div
@@ -41,38 +35,45 @@ export function TypographySection({ fonts }: Props) {
             }}
             className="flex flex-col gap-5"
         >
-            {fonts.map((font, i) => (
+            {fonts.map((font) => (
                 <FontItem
                     key={font.family}
                     font={font}
-                    index={i}
-                    globalPangramIndex={globalPangramIndex}
+                    sessionPangram={sessionPangram}
                 />
             ))}
         </motion.div>
     );
 }
 
-function FontItem({ font, index, globalPangramIndex }: { font: FontInfo; index: number; globalPangramIndex: number }) {
-    const [pangramIndex, setPangramIndex] = useState(globalPangramIndex);
-    const [activeWeight, setActiveWeight] = useState(font.weights[0]);
+function FontItem({ font, sessionPangram }: { font: FontInfo; sessionPangram: string }) {
+    // Sort weights in numerical order
+    const sortedWeights = [...font.weights].sort((a, b) => parseInt(a) - parseInt(b));
+    const [activeWeight, setActiveWeight] = useState(sortedWeights[0]);
+    const hasMultipleWeights = sortedWeights.length > 1;
 
+    // Auto-cycle through weights if there are multiple
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setPangramIndex(globalPangramIndex);
-        }, index * 120);
-        return () => clearTimeout(timer);
-    }, [globalPangramIndex, index]);
-
-    const currentPangram = PANGRAMS[pangramIndex];
+        if (!hasMultipleWeights) return;
+        
+        const interval = setInterval(() => {
+            setActiveWeight((currentWeight) => {
+                const currentIndex = sortedWeights.indexOf(currentWeight);
+                const nextIndex = (currentIndex + 1) % sortedWeights.length;
+                return sortedWeights[nextIndex];
+            });
+        }, 8000);
+        return () => clearInterval(interval);
+    }, [hasMultipleWeights, sortedWeights]);
 
     // Determine the source for the current specimen
+    // Use the first pangram from weightPreviews (they should all use the same pangram now)
     let specimenSrc = '';
     if (font.preview.method === 'canvas' && font.preview.weightPreviews) {
-        specimenSrc = font.preview.weightPreviews[activeWeight]?.[pangramIndex % (font.preview.weightPreviews[activeWeight]?.length || 1)] || '';
+        specimenSrc = font.preview.weightPreviews[activeWeight]?.[0] || '';
     } else if (font.preview.method === 'canvas') {
         const previews = font.preview.previews || [font.preview.data];
-        specimenSrc = previews[pangramIndex % previews.length];
+        specimenSrc = previews[0];
     }
 
     return (
@@ -99,10 +100,12 @@ function FontItem({ font, index, globalPangramIndex }: { font: FontInfo; index: 
                     </a>
                 </span>
                 <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
-                    {font.weights.map((w, i) => (
+                    {sortedWeights.map((w, i) => (
                         <div key={w} className="flex items-center gap-1">
                             <button
-                                onClick={() => setActiveWeight(w)}
+                                onClick={() => {
+                                    setActiveWeight(w);
+                                }}
                                 className={`
                                     text-[10px] font-mono transition-all duration-200 px-0.5
                                     ${activeWeight === w
@@ -113,7 +116,7 @@ function FontItem({ font, index, globalPangramIndex }: { font: FontInfo; index: 
                             >
                                 {w}
                             </button>
-                            {i < font.weights.length - 1 && (
+                            {i < sortedWeights.length - 1 && (
                                 <span className="text-muted text-[9px] font-mono">/</span>
                             )}
                         </div>
@@ -122,16 +125,16 @@ function FontItem({ font, index, globalPangramIndex }: { font: FontInfo; index: 
             </div>
 
             {/* Specimen - Smoother easing, fade out down, fade in up */}
-            <div className="pt-4 pb-6 border-b border-faint overflow-hidden min-h-[90px] relative">
+            <div className="pt-2 pb-4 border-b border-faint overflow-hidden min-h-[90px] relative">
                 <AnimatePresence mode="wait" initial={false}>
                     <motion.div
-                        key={`${pangramIndex}-${activeWeight}`}
-                        initial={{ opacity: 0, y: -8 }}
+                        key={activeWeight}
+                        initial={{ opacity: 0, y: -4 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 8 }}
                         transition={{
-                            duration: 0.6,
-                            ease: [0.16, 1, 0.3, 1]
+                            duration: 0.4,
+                            ease: sexyEase
                         }}
                         className="w-full"
                     >
@@ -150,7 +153,7 @@ function FontItem({ font, index, globalPangramIndex }: { font: FontInfo; index: 
                                     <style>{`@font-face { font-family: '${font.family}-preview'; src: url('${font.preview.data}'); }`}</style>
                                 )}
                                 <p
-                                    className="text-[36px] leading-[1.05] tracking-tight max-w-[300px]"
+                                    className="text-[34px] leading-tight tracking-tight max-w-[300px]"
                                     style={{
                                         fontFamily: font.preview.method === 'datauri'
                                             ? `'${font.family}-preview', sans-serif`
@@ -168,7 +171,7 @@ function FontItem({ font, index, globalPangramIndex }: { font: FontInfo; index: 
                                         paddingBottom: '0.2em'
                                     }}
                                 >
-                                    {currentPangram}
+                                    {sessionPangram}
                                 </p>
                             </>
                         )}

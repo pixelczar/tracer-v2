@@ -103,7 +103,7 @@ export function ColorSection({ colors, maxColors = 8, maxLarge = 2 }: Props) {
               `}
               style={{ backgroundColor: color.hex }}
             >
-              <div className="absolute inset-0 rounded-md ring-1 ring-inset ring-black/10 pointer-events-none" />
+              <div className="absolute inset-0 rounded-sm ring-1 ring-inset ring-black/10 pointer-events-none" />
             </motion.button>
           );
         })}

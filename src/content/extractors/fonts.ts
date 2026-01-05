@@ -199,21 +199,43 @@ async function renderFontToCanvas(family: string, text: string, isMono: boolean,
     const words = text.split(' ');
     const lines: string[] = [];
     let currentLine = words[0];
+    const maxLines = 2;
 
     for (let i = 1; i < words.length; i++) {
-        const word = words[i];
-        const width = ctx.measureText(currentLine + " " + word).width;
-        if (width < maxWidth) {
-            currentLine += " " + word;
+        if (lines.length >= maxLines - 1) {
+            // We're on the last line, check if we need to truncate
+            const testLine = currentLine + " " + words[i];
+            const testWidth = ctx.measureText(testLine).width;
+            if (testWidth >= maxWidth) {
+                // Truncate with ellipsis
+                let truncated = currentLine;
+                while (ctx.measureText(truncated + "...").width >= maxWidth && truncated.length > 0) {
+                    truncated = truncated.slice(0, -1);
+                }
+                lines.push(truncated + "...");
+                break;
+            } else {
+                currentLine = testLine;
+            }
         } else {
-            lines.push(currentLine);
-            currentLine = word;
+            const word = words[i];
+            const width = ctx.measureText(currentLine + " " + word).width;
+            if (width < maxWidth) {
+                currentLine += " " + word;
+            } else {
+                lines.push(currentLine);
+                currentLine = word;
+            }
         }
     }
-    lines.push(currentLine);
+    
+    // Add the last line if we haven't reached max lines
+    if (lines.length < maxLines) {
+        lines.push(currentLine);
+    }
 
     canvas.width = maxWidth;
-    canvas.height = lines.length * size * 1.2 + 20;
+    canvas.height = Math.min(lines.length, maxLines) * size * 1.2 + 20;
 
     // Reset context properties after resize
     ctx.font = fontString;

@@ -1,6 +1,8 @@
 import { IconArrow } from './Icons';
 import { TECH_CATEGORY_META, type TechInfo } from '../../shared/types';
 import { getTechIcon } from '../../shared/techIcons';
+import tracerLogoLight from '../../assets/tracer-text-on-light-slashes-00.svg';
+import tracerLogoDark from '../../assets/tracer-text-on-dark-slashes-00.svg';
 
 interface Props {
   tech: TechInfo;
@@ -10,12 +12,16 @@ export function TechItem({ tech }: Props) {
   const meta = TECH_CATEGORY_META[tech.category];
   const isUncertain = tech.confidence < 80;
   const iconUrl = getTechIcon(tech.name);
+  
+  // Get theme from document to choose appropriate logo
+  const theme = document.documentElement.dataset.theme || 'dark';
+  const tracerLogo = theme === 'light' ? tracerLogoLight : tracerLogoDark;
 
   return (
-    <div className="tech-item flex flex-col py-1.5 border-b border-faint last:border-0 min-w-0 w-full">
-      <div className="flex items-center gap-2 group min-w-0 w-full">
+    <div className="tech-item flex flex-col py-1.5 border-b border-faint last:border-0 min-w-0 w-full group">
+      <div className="flex items-center gap-2 min-w-0 w-full">
         {/* Icon */}
-        <div className="flex-shrink-0 w-3 h-3 flex items-center justify-center">
+        <div className="flex-shrink-0 w-3 h-3 flex items-center justify-center ">
           {iconUrl ? (
             <img 
               src={iconUrl} 
@@ -23,17 +29,23 @@ export function TechItem({ tech }: Props) {
               className="w-3 h-3 object-contain rounded-sm" 
               loading="lazy"
               onError={(e) => {
-                // Hide broken images
-                (e.target as HTMLImageElement).style.display = 'none';
+                // Fallback to Tracer logo on error
+                const img = e.target as HTMLImageElement;
+                img.src = tracerLogo;
+                img.className = 'w-3 h-3 object-contain rounded-sm opacity-40';
               }}
             />
           ) : (
-            <div className="w-3 h-3 rounded-sm bg-faint opacity-50" />
+            <img 
+              src={tracerLogo} 
+              alt="" 
+              className="w-3 h-3 object-contain rounded-sm opacity-40" 
+            />
           )}
         </div>
 
         {/* Name + Version + Link */}
-        <span className={`flex items-center gap-1.5 text-[13px] min-w-0 flex-1 overflow-hidden ${tech.isSignal ? 'font-semibold text-fg' : 'font-medium'}`}>
+        <span className={`flex items-center gap-1 text-[13px] min-w-0 flex-1 overflow-hidden ${tech.isSignal ? 'font-semibold text-fg' : 'font-medium'}`}>
           <span className="truncate min-w-0" title={tech.name}>{tech.name}</span>
           {tech.isSignal && <span className="text-accent text-2xs flex-shrink-0 -ml-0.5 -mt-2">✦</span>}
           {tech.version && (
@@ -46,7 +58,7 @@ export function TechItem({ tech }: Props) {
             className="text-muted opacity-0 group-hover:opacity-100 transition-all duration-300 hover:text-accent flex-shrink-0"
             title={tech.url}
           >
-            <IconArrow />
+            <IconArrow className="w-4 h-4" />
           </a>
         </span>
 
