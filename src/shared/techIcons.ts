@@ -329,7 +329,6 @@ const TECH_ICON_MAP: Record<string, string> = {
     // Cloud Services
     'Azure Edge Network': 'Azure.svg',
     'Microsoft Azure': 'Azure.svg',
-    'Amazon Web Services': 'Amazon Web Services.svg',
 
     // AI
     'OpenAI': 'OpenAI.svg',
@@ -355,7 +354,6 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Devin': 'Devin.svg',
     'GPT Engineer': 'GPT.svg',
     'Builder.io': 'Builder.io.svg',
-    'Observable': 'Observable.svg',
     'Tilda': 'Tilda.svg',
 };
 
