@@ -112,7 +112,7 @@ async function detectMainWorld(tabId: number) {
 
 async function ensureContentScriptLoaded(tabId: number): Promise<boolean> {
     try {
-        // Content script is now loaded via manifest but stays inactive
+        // Content script is loaded via manifest but stays inactive until activated
         // Send PING to activate it and verify it's loaded
         const response = await safeSendMessageToTab(tabId, { type: 'PING' });
 
