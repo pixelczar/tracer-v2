@@ -1,6 +1,8 @@
 import { motion } from 'motion/react';
+import { useState, useEffect } from 'react';
 import { TechItem } from './TechItem';
 import { TECH_CATEGORY_META, type TechInfo } from '../../shared/types';
+import { getSettings } from '../../shared/settings';
 
 const sexyEase = [0.16, 1, 0.3, 1] as const;
 
@@ -9,8 +11,23 @@ interface Props {
 }
 
 export function TechSection({ tech }: Props) {
+    // Track settings changes to trigger re-render
+    const [, forceUpdate] = useState(0);
+    
+    useEffect(() => {
+        const handleSettingsChange = () => {
+            forceUpdate(n => n + 1);
+        };
+        window.addEventListener('tracer:settings-changed', handleSettingsChange);
+        return () => window.removeEventListener('tracer:settings-changed', handleSettingsChange);
+    }, []);
+
+    // Filter by hidden categories
+    const settings = getSettings();
+    const filteredTech = tech.filter(t => !settings.hiddenCategories.includes(t.category));
+
     // Group by category group
-    const groups = tech.reduce((acc, t) => {
+    const groups = filteredTech.reduce((acc, t) => {
         const meta = TECH_CATEGORY_META[t.category];
         const groupName = meta?.group || 'Other';
         if (!acc[groupName]) acc[groupName] = [];

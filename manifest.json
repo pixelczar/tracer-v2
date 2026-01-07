@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Tracer",
-    "version": "2.0.0",
+    "version": "2.2.1",
     "description": "See how any website is built — colors, typography, and tech stack for design engineers",
     "permissions": [
         "sidePanel",

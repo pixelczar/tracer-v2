@@ -152,6 +152,7 @@ safeAddMessageListener((message, _sender, sendResponse) => {
             showCursorBubble('Target acquisition');
             enterInspectMode((element) => {
                 updateCursorMessage('Analyzing');
+                safeSendMessage({ type: 'INSPECT_SELECT' });
                 // Analyze element and send back
                 import('./inspect/analyzer').then(({ analyzeElement }) => {
                     analyzeElement(element).then((result) => {
@@ -225,7 +226,8 @@ async function runFullExtraction(payload: any = {}) {
         headers: payload.headers,
         mainWorldGlobals: payload.mainWorldGlobals,
         mainWorldVersions: payload.mainWorldVersions,
-        cookies: document.cookie
+        cookies: document.cookie,
+        deepScan: payload.deepScan || false
     });
 
     console.log('[Tracer] Extraction complete:', { colors: colors.length, fonts: fonts.length, tech: tech.length });
@@ -235,6 +237,7 @@ async function runFullExtraction(payload: any = {}) {
         domain: window.location.hostname,
         favicon: getFavicon(),
         ogImage: getOGImage(),
+        ogMetadata: extractOGMetadata(),
         colors,
         fonts,
         tech,
@@ -255,6 +258,22 @@ function getOGImage(): string | undefined {
         document.querySelector<HTMLMetaElement>('meta[name="twitter:image"]') ||
         document.querySelector<HTMLMetaElement>('meta[property="twitter:image"]');
     return meta?.content;
+}
+
+function extractOGMetadata() {
+    const getMeta = (property: string, name?: string) => {
+        const meta = document.querySelector<HTMLMetaElement>(`meta[property="${property}"]`) ||
+            (name ? document.querySelector<HTMLMetaElement>(`meta[name="${name}"]`) : null);
+        return meta?.content;
+    };
+
+    return {
+        title: getMeta('og:title'),
+        description: getMeta('og:description'),
+        type: getMeta('og:type'),
+        url: getMeta('og:url'),
+        siteName: getMeta('og:site_name', 'og:site_name'),
+    };
 }
 
 // Content script loads but stays inactive until activated by extension

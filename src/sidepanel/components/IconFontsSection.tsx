@@ -51,7 +51,7 @@ function IconFontItem({ font }: { font: FontInfo }) {
         >
             {/* Header */}
             <div className="flex items-baseline justify-between px-0.5">
-                <span className="flex items-center gap-1.5 font-semibold text-[13px]">
+                <span className="flex items-center gap-1.5 font-medium text-[13px]">
                     {font.family}
                     <a
                         href={searchUrl}

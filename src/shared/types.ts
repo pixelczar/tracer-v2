@@ -4,6 +4,13 @@ export interface ScanResult {
     domain: string;
     favicon?: string;
     ogImage?: string;
+    ogMetadata?: {
+        title?: string;
+        description?: string;
+        type?: string;
+        url?: string;
+        siteName?: string;
+    };
     scannedAt: number;
     colors: ColorInfo[];
     fonts: FontInfo[];
@@ -36,6 +43,7 @@ export interface FontPreview {
     data: string;
     previews?: string[]; // Multiple data URIs for cycling
     weightPreviews?: Record<string, string[]>; // weight -> cycling previews
+    previewText?: string; // Custom preview text (OG description, page content, etc.)
 }
 
 export interface TechInfo {

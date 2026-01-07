@@ -1,4 +1,5 @@
 import type { FontInfo, FontPreview } from '../../shared/types';
+import { getSettingsAsync } from '../../shared/settings';
 
 interface FontDetails {
     family: string;
@@ -33,10 +34,12 @@ export async function extractFonts(): Promise<FontInfo[]> {
     extractIconSamples(fontMap);
 
     // 6. Generate previews
+    const settings = await getSettingsAsync();
+    const previewText = getFontPreviewText(settings.fontPreviewSource);
     const fonts = await Promise.all(
         Array.from(fontMap.values()).map(async (details) => ({
             ...details,
-            preview: await generatePreview(details),
+            preview: await generatePreview(details, previewText),
             isIconFont: details.isIconFont,
             iconSamples: details.iconSamples,
         }))
@@ -355,12 +358,52 @@ const PANGRAMS = [
     "Quick wafting zephyrs vex bold Jim"
 ];
 
-async function generatePreview(font: FontDetails): Promise<FontPreview> {
+function getFontPreviewText(source: 'pangram' | 'og-description' | 'page-content'): string {
+    if (source === 'pangram') {
+        return PANGRAMS[Math.floor(Math.random() * PANGRAMS.length)];
+    }
+
+    if (source === 'og-description') {
+        const ogDesc = document.querySelector<HTMLMetaElement>('meta[property="og:description"]')?.content ||
+            document.querySelector<HTMLMetaElement>('meta[name="og:description"]')?.content;
+        if (ogDesc && ogDesc.length > 20) {
+            return ogDesc.slice(0, 200); // Limit length
+        }
+    }
+
+    if (source === 'page-content') {
+        // Try page title first
+        const title = document.title;
+        if (title && title.length > 20) {
+            return title;
+        }
+
+        // Try first paragraph
+        const firstP = document.querySelector('p');
+        if (firstP?.textContent && firstP.textContent.length > 20) {
+            return firstP.textContent.slice(0, 200);
+        }
+
+        // Try meta description
+        const metaDesc = document.querySelector<HTMLMetaElement>('meta[name="description"]')?.content;
+        if (metaDesc && metaDesc.length > 20) {
+            return metaDesc.slice(0, 200);
+        }
+    }
+
+    // Fallback to pangram
+    return PANGRAMS[Math.floor(Math.random() * PANGRAMS.length)];
+}
+
+async function generatePreview(font: FontDetails, previewText?: string): Promise<FontPreview> {
+    const textToUse = previewText || PANGRAMS[0];
+    
     // Google Fonts — use import URL
     if (font.source === 'google') {
         return {
             method: 'google',
             data: `https://fonts.googleapis.com/css2?family=${encodeURIComponent(font.family)}:wght@${font.weights.join(';')}`,
+            previewText: textToUse,
         };
     }
 
@@ -374,6 +417,7 @@ async function generatePreview(font: FontDetails): Promise<FontPreview> {
             return {
                 method: 'datauri',
                 data: `data:font/woff2;base64,${base64}`,
+                previewText: textToUse,
             };
         } catch {
             // CORS blocked
@@ -384,7 +428,7 @@ async function generatePreview(font: FontDetails): Promise<FontPreview> {
     const weightPreviews: Record<string, string[]> = {};
     for (const weight of font.weights) {
         weightPreviews[weight] = await Promise.all(
-            PANGRAMS.map(p => renderFontToCanvas(font.family, p, font.isMono, weight))
+            [textToUse].map(p => renderFontToCanvas(font.family, p, font.isMono, weight))
         );
     }
 
@@ -393,6 +437,7 @@ async function generatePreview(font: FontDetails): Promise<FontPreview> {
         data: weightPreviews[font.weights[0]]?.[0] || '',
         previews: weightPreviews[font.weights[0]] || [],
         weightPreviews,
+        previewText: textToUse,
     };
 }
 

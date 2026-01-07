@@ -1,6 +1,19 @@
 import { TECH_PATTERNS } from '../shared/techPatterns';
 import { safeSendMessage, safeSendMessageToTab } from '../shared/chromeUtils';
 
+// Get settings from storage (background script can't use localStorage)
+async function getSettings(): Promise<{ deepScan: boolean }> {
+    try {
+        const result = await chrome.storage.local.get('tracer_settings');
+        if (result.tracer_settings && typeof result.tracer_settings === 'object') {
+            return { deepScan: result.tracer_settings.deepScan || false };
+        }
+    } catch (e) {
+        console.warn('[Tracer] Failed to load settings:', e);
+    }
+    return { deepScan: false };
+}
+
 // Enable side panel to open on action click
 if (chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
     chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error);
@@ -43,6 +56,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     } else if (message.type === 'CAPTURE_ELEMENT' && tabId) {
         handleCapture(tabId, message.rect).then(sendResponse);
         return true;
+    } else if (message.type === 'SCAN_PROGRESS' || message.type === 'INSPECT_HOVER' || message.type === 'INSPECT_SELECT' || message.type === 'INSPECT_COMPLETE' || message.type === 'INSPECT_ERROR' || message.type === 'CANCEL_INSPECT') {
+        // Forward these messages to sidepanel
+        safeSendMessage(message);
+        return false;
     }
     return false;
 });
@@ -157,13 +174,17 @@ async function handleScan(tabId: number) {
     // 2. Main world detection
     const mainWorldResults: any = await detectMainWorld(tabId);
 
-    // 3. Content script extraction
+    // 3. Get settings for deep scan
+    const settings = await getSettings();
+
+    // 4. Content script extraction
     const response = await safeSendMessageToTab(tabId, {
         type: 'EXTRACT',
         payload: {
             headers,
             mainWorldGlobals: mainWorldResults.foundGlobals,
-            mainWorldVersions: mainWorldResults.versions
+            mainWorldVersions: mainWorldResults.versions,
+            deepScan: settings.deepScan
         }
     });
 

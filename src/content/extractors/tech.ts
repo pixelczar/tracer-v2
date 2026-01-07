@@ -5,15 +5,71 @@ export async function extractTech(options: {
     headers?: Record<string, string>,
     mainWorldGlobals?: string[],
     mainWorldVersions?: Record<string, string>,
-    cookies?: string
+    cookies?: string,
+    deepScan?: boolean
 } = {}): Promise<TechInfo[]> {
+    // Wait for resources if deep scan is enabled
+    if (options.deepScan) {
+        await new Promise(resolve => setTimeout(resolve, 2500));
+    }
+
     // 1. Perform detection using passed main world results and headers
     const detected = performDetection(
         options.mainWorldGlobals || [],
         options.mainWorldVersions || {},
         options.headers || {},
-        options.cookies || ''
+        options.cookies || '',
+        options.deepScan || false
     );
+
+    // 2. Deep scan: Service Worker detection (async)
+    if (options.deepScan) {
+        try {
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                if (registrations.length > 0) {
+                    const findings = new Map<string, { confidence: number, version?: string, matchedPatterns: number }>();
+                    const update = (name: string, confidence: number) => {
+                        const current = findings.get(name);
+                        if (!current || current.confidence < confidence) {
+                            findings.set(name, { confidence, matchedPatterns: 1 });
+                        }
+                    };
+                    
+                    registrations.forEach(reg => {
+                        if (reg.active?.scriptURL) {
+                            TECH_PATTERNS.forEach(tool => {
+                                if (tool.patterns.scripts) {
+                                    tool.patterns.scripts.forEach(regex => {
+                                        if (regex.test(reg.active!.scriptURL)) {
+                                            update(tool.name, Math.min(tool.confidence ?? 100, 90));
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    });
+
+                    // Merge findings into detected
+                    findings.forEach((data, name) => {
+                        const existing = detected.find(t => t.name === name);
+                        if (!existing) {
+                            const pattern = TECH_PATTERNS.find(p => p.name === name);
+                            if (pattern) {
+                                detected.push({
+                                    name,
+                                    confidence: data.confidence,
+                                    category: pattern.category,
+                                    isSignal: pattern.isSignal,
+                                    url: pattern.url
+                                });
+                            }
+                        }
+                    });
+                }
+            }
+        } catch { /* ignore */ }
+    }
 
     return detected;
 }
@@ -22,7 +78,8 @@ function performDetection(
     foundGlobals: string[],
     versions: Record<string, string>,
     responseHeaders: Record<string, string>,
-    cookieString: string
+    cookieString: string,
+    deepScan: boolean = false
 ): TechInfo[] {
     const findings = new Map<string, { confidence: number, version?: string, matchedPatterns: number }>();
 
@@ -235,6 +292,121 @@ function performDetection(
         }
     });
 
+    // ========== DEEP SCAN METHODS ==========
+    if (deepScan) {
+        // Script Content Analysis
+        try {
+            const inlineScripts = Array.from(document.querySelectorAll('script:not([src])'));
+            inlineScripts.forEach(script => {
+                const content = script.textContent || '';
+                TECH_PATTERNS.forEach(tool => {
+                    if (tool.patterns.scripts) {
+                        tool.patterns.scripts.forEach(regex => {
+                            if (regex.test(content)) {
+                                update(tool.name, Math.min(getBaseConfidence(tool), 85));
+                            }
+                        });
+                    }
+                });
+            });
+        } catch { /* ignore */ }
+
+        // Network Request Analysis
+        try {
+            const resources = performance.getEntriesByType('resource') as PerformanceResourceTiming[];
+            const resourceUrls = resources.map(r => r.name);
+            
+            TECH_PATTERNS.forEach(tool => {
+                if (tool.patterns.scripts) {
+                    tool.patterns.scripts.forEach(regex => {
+                        if (resourceUrls.some(url => regex.test(url))) {
+                            update(tool.name, Math.min(getBaseConfidence(tool), 90));
+                        }
+                    });
+                }
+            });
+
+            // Detect API patterns - only for tech that exists in TECH_PATTERNS
+            // Check for GraphQL endpoints
+            const graphqlPattern = TECH_PATTERNS.find(p => p.name.toLowerCase().includes('graphql'));
+            if (graphqlPattern && resourceUrls.some(url => /graphql/i.test(url))) {
+                update(graphqlPattern.name, 85);
+            }
+        } catch { /* ignore */ }
+
+        // Enhanced CSS Analysis
+        try {
+            const styleSheets = Array.from(document.styleSheets);
+            for (const sheet of styleSheets) {
+                try {
+                    if (sheet.ownerNode && (sheet.ownerNode as HTMLStyleElement).textContent) {
+                        const cssText = (sheet.ownerNode as HTMLStyleElement).textContent || '';
+                        TECH_PATTERNS.forEach(tool => {
+                            if (tool.patterns.css) {
+                                tool.patterns.css.forEach(regex => {
+                                    if (regex.test(cssText)) {
+                                        update(tool.name, Math.min(getBaseConfidence(tool), 85));
+                                    }
+                                });
+                            }
+                        });
+                    }
+                    // Try to access computed styles for CSS variables
+                    if (sheet.cssRules) {
+                        Array.from(sheet.cssRules).forEach(rule => {
+                            if (rule instanceof CSSStyleRule) {
+                                const style = rule.style;
+                                if (style.getPropertyValue('--') || style.cssText.includes('var(--')) {
+                                    // Check for framework-specific CSS variables
+                                    if (style.cssText.includes('--radix') || style.cssText.includes('--shadcn')) {
+                                        update('Shadcn UI', 85);
+                                    }
+                                }
+                            }
+                        });
+                    }
+                } catch { /* CORS or other errors */ }
+            }
+        } catch { /* ignore */ }
+
+        // Storage Analysis
+        try {
+            const storageKeys = Object.keys(localStorage).concat(Object.keys(sessionStorage));
+            const storageString = storageKeys.join(' ').toLowerCase();
+            
+            TECH_PATTERNS.forEach(tool => {
+                // Check for framework markers in storage keys
+                if (tool.patterns.globals) {
+                    tool.patterns.globals.forEach(global => {
+                        if (storageString.includes(global.toLowerCase())) {
+                            update(tool.name, Math.min(getBaseConfidence(tool), 75));
+                        }
+                    });
+                }
+            });
+
+            // Specific storage pattern checks - only for tech that exists in TECH_PATTERNS
+            const reduxPattern = TECH_PATTERNS.find(p => p.name === 'Redux');
+            if (reduxPattern && storageKeys.some(k => k.includes('redux') || k.includes('store'))) {
+                update('Redux', 80);
+            }
+        } catch { /* ignore */ }
+
+        // Service Worker Detection (async, but we'll handle it separately)
+        // Note: This will be called from extractTech after await
+    }
+
+    // Service Worker Detection (called separately due to async)
+    if (deepScan) {
+        try {
+            if ('serviceWorker' in navigator) {
+                if (navigator.serviceWorker.controller) {
+                    update('Service Worker', 100);
+                }
+            }
+        } catch { /* ignore */ }
+    }
+
     // ========== HEURISTICS ==========
 
     // 10. Resources & Timing (WebSocket detection)
@@ -351,15 +523,20 @@ function performDetection(
     }
 
     // ========== CONVERT TO TechInfo ==========
-    return Array.from(findings.entries()).map(([name, data]) => {
-        const pattern = TECH_PATTERNS.find(p => p.name === name)!;
-        return {
-            name,
-            confidence: data.confidence,
-            version: data.version,
-            category: pattern.category,
-            isSignal: pattern.isSignal,
-            url: pattern.url
-        };
-    });
+    return Array.from(findings.entries())
+        .filter(([name]) => {
+            // Only include tech that exists in TECH_PATTERNS
+            return TECH_PATTERNS.some(p => p.name === name);
+        })
+        .map(([name, data]) => {
+            const pattern = TECH_PATTERNS.find(p => p.name === name)!;
+            return {
+                name,
+                confidence: data.confidence,
+                version: data.version,
+                category: pattern.category,
+                isSignal: pattern.isSignal,
+                url: pattern.url
+            };
+        });
 }

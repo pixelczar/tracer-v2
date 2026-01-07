@@ -6,8 +6,10 @@ import { TypographySection } from './components/TypographySection';
 import { IconFontsSection } from './components/IconFontsSection';
 import { TechSection } from './components/TechSection';
 import { InspectedElementCard } from './components/InspectedElement';
-import { ThemePicker } from './components/ThemePicker';
+import { SettingsPopover } from './components/SettingsPopover';
+import { OGMetadataSection } from './components/OGMetadataSection';
 import { IconInspect, IconRefresh } from './components/Icons';
+import { getSettings } from '../shared/settings';
 import { ScrambleText } from './components/ScrambleText';
 import type { ScanResult, ScanState, InspectedElement, InspectState } from '../shared/types';
 import { safeSendMessage, safeAddMessageListener, isExtensionContextValid } from '../shared/chromeUtils';
@@ -132,8 +134,16 @@ export default function App() {
     const [cursorVisible, setCursorVisible] = useState(false);
     const [isHovering, setIsHovering] = useState(false);
     const [revealData, setRevealData] = useState(false);
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const retryRef = useRef(false);
     const startScanRef = useRef<() => Promise<void>>();
+
+    // Load settings on mount
+    useEffect(() => {
+        const settings = getSettings();
+        setTheme(settings.theme);
+        document.documentElement.dataset.theme = settings.theme;
+    }, []);
 
     useEffect(() => {
         document.documentElement.dataset.theme = theme;
@@ -178,6 +188,7 @@ export default function App() {
                         if (prev === status) return prev;
                         return status;
                     });
+                    setCursorVisible(true);
                     break;
                 }
                 case 'SCAN_COMPLETE':
@@ -237,17 +248,13 @@ export default function App() {
 
         // Update scan state immediately for button loading state
         setScanState('scanning');
-        setHeaderStatus('Scanning');
         
         // Smoothly fade out content first
         setRevealData(false);
         
-        // Smoothly fade out cursor bubble, then fade in with new message
-        setCursorVisible(false);
-        setTimeout(() => {
-            setCursorMessage('//_');
-            setCursorVisible(true);
-        }, 400);
+        // Set cursor bubble to "//_" and show it
+        setCursorMessage('//_');
+        setCursorVisible(true);
         
         // Wait for exit animation to complete before clearing data and starting scan
         setTimeout(async () => {
@@ -340,8 +347,8 @@ export default function App() {
                                 // Wait a bit more for scripts to initialize, then retry
                                 setTimeout(() => {
                                     retryRef.current = false;
-                                    setCursorMessage('Retrying scan...');
-                                    setHeaderStatus('Retrying scan...');
+                                    setCursorMessage('//_');
+                                    setCursorVisible(true);
                                     startScanRef.current?.();
                                 }, 1500);
                             }
@@ -354,8 +361,8 @@ export default function App() {
                             chrome.tabs.onUpdated.removeListener(onTabUpdated);
                             if (retryRef.current) {
                                 retryRef.current = false;
-                                setCursorMessage('Retrying scan...');
-                                setHeaderStatus('Retrying scan...');
+                                setCursorMessage('//_');
+                                setCursorVisible(true);
                                 startScanRef.current?.();
                             }
                         }, 10000);
@@ -367,6 +374,7 @@ export default function App() {
                     retryRef.current = false;
                     setCursorMessage('Error, retrying');
                     setHeaderStatus('Error, retrying');
+                    setCursorVisible(true);
                 }
             };
 
@@ -384,7 +392,7 @@ export default function App() {
 
         setInspectState('selecting');
         setCursorVisible(true);
-        setCursorMessage('Target acquisition');
+        setCursorMessage('//_');
 
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -438,46 +446,46 @@ export default function App() {
             >
                 <div className="w-full max-w-96 mx-auto flex flex-col min-h-screen scrollbar-gutter-stable">
                     <header className="flex items-center justify-between px-3 pt-3 pb-2">
-                        <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                            {!revealData && headerStatus ? (
-                                <motion.div
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    transition={{ duration: 0.3, ease: sexyEase }}
-                                    className="flex items-center"
-                                >
-                                    <h2 className={`text-[12px] ${headerStatus?.toLowerCase().includes('error') ? 'text-accent' : 'text-muted'}`}>
-                                        <ScrambleText key={headerStatus} text={headerStatus} trigger={true} />
-                                    </h2>
-                                </motion.div>
-                            ) : revealData ? (
-                                <motion.div
-                                    className="flex items-center gap-2.5 flex-1 min-w-0"
-                                    initial="hidden"
-                                    animate="visible"
-                                    variants={{
-                                        hidden: { opacity: 0, y: -3 },
-                                        visible: { opacity: 1, y: 0 }
-                                    }}
-                                    transition={{ duration: 0.5, ease: sexyEase }}
-                                >
-                                    {displayFavicon && (
-                                        <img
-                                            src={displayFavicon}
-                                            alt=""
-                                            className="w-5 h-5 rounded flex-shrink-0"
-                                        />
-                                    )}
-                                    {displayDomain && (
-                                        <span className="font-medium text-sm truncate">
-                                            {displayDomain}
-                                        </span>
-                                    )}
-                                </motion.div>
-                            ) : null}
+                        <div className={`flex items-center gap-2.5 flex-1 min-w-0 transition-all duration-300 ${isSettingsOpen ? 'blur-lg' : ''}`}>
+                            <AnimatePresence mode="wait">
+                                {!revealData && headerStatus ? (
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ duration: 0.3, ease: sexyEase }}
+                                        className="flex items-center"
+                                    >
+                                        <h2 className={`text-[12px] ${headerStatus?.toLowerCase().includes('error') ? 'text-accent' : 'text-muted'}`}>
+                                            <ScrambleText key={headerStatus} text={headerStatus} trigger={true} />
+                                        </h2>
+                                    </motion.div>
+                                ) : revealData ? (
+                                    <motion.div
+                                        key="domain"
+                                        className="flex items-center gap-2.5 flex-1 min-w-0"
+                                        initial={{ opacity: 0, y: -3 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -3 }}
+                                        transition={{ duration: 0.6, ease: sexyEase }}
+                                    >
+                                        {displayFavicon && (
+                                            <img
+                                                src={displayFavicon}
+                                                alt=""
+                                                className="w-5 h-5 rounded flex-shrink-0"
+                                            />
+                                        )}
+                                        {displayDomain && (
+                                            <span className="font-medium text-sm truncate">
+                                                {displayDomain}
+                                            </span>
+                                        )}
+                                    </motion.div>
+                                ) : null}
+                            </AnimatePresence>
                         </div>
                         <motion.div 
-                            className="flex items-center gap-0.5 flex-shrink-0"
+                            className={`flex items-center gap-0.5 flex-shrink-0 transition-all duration-300 ${isSettingsOpen ? 'blur-lg' : ''}`}
                             initial="hidden"
                             animate={showHeader ? "visible" : "hidden"}
                             variants={{
@@ -495,12 +503,12 @@ export default function App() {
                                 onClick={startScan}
                                 disabled={isLoading}
                                 className="
-                                    w-8 h-8 flex items-center justify-center rounded-md flex-shrink-0
+                                    w-8 h-8 flex items-center justify-center rounded-lg flex-shrink-0
                                     text-fg opacity-40 transition-all
                                     border border-transparent hover:opacity-100
                                     disabled:opacity-20
                                 "
-                                title="Rescan"
+                                // title="Rescan"
                                 variants={{
                                     hidden: { opacity: 0, y: -3 },
                                     visible: { opacity: 0.4, y: 0 }
@@ -512,7 +520,7 @@ export default function App() {
                             <motion.button
                                 onClick={isInspecting ? stopInspect : startInspect}
                                 className={`
-                                    w-8 h-8 flex items-center justify-center rounded-md flex-shrink-0
+                                    w-8 h-8 flex items-center justify-center rounded-lg flex-shrink-0
                                     transition-all border border-transparent
                                     ${isInspecting 
                                         ? 'bg-accent text-black' 
@@ -534,11 +542,31 @@ export default function App() {
                             >
                                 <IconInspect />
                             </motion.button>
-                            <ThemePicker theme={theme} setTheme={setTheme} />
+                        </motion.div>
+                        <motion.div 
+                            className="relative z-50" 
+                            style={{ filter: 'none' }}
+                            initial="hidden"
+                            animate={showHeader || isSettingsOpen ? "visible" : "hidden"}
+                            variants={{
+                                hidden: { opacity: 0, y: -3 },
+                                visible: { opacity: 1, y: 0 }
+                            }}
+                            transition={{ duration: 0.5, ease: sexyEase }}
+                        >
+                            <SettingsPopover 
+                                theme={theme} 
+                                onThemeChange={(newTheme) => {
+                                    setTheme(newTheme);
+                                    document.documentElement.dataset.theme = newTheme;
+                                }}
+                                onRescan={startScan}
+                                onOpenChange={setIsSettingsOpen}
+                            />
                         </motion.div>
                     </header>
 
-                    <main className="flex-1 pl-4 pr-2 py-2 flex flex-col gap-10 overflow-y-scroll relative scrollbar-gutter-stable">
+                    <main className={`flex-1 pl-4 pr-2 py-2 flex flex-col gap-10 overflow-y-auto relative scrollbar-gutter-stable transition-all duration-300 ${isSettingsOpen ? 'blur-lg' : ''}`}>
                         {/* Inspected Element - Renders independently of scan data */}
                         <AnimatePresence>
                             {(inspectedElement || inspectState === 'analyzing' || inspectState === 'complete') && (
@@ -564,6 +592,7 @@ export default function App() {
                             {revealData && data ? (
                                 <motion.div
                                     key="content"
+                                    layout
                                     initial="hidden"
                                     animate="show"
                                     exit="exit"
@@ -685,7 +714,7 @@ export default function App() {
                                                     transition={{ duration: 1.0, ease: sexyEase }}
                                                     className="group"
                                                 >
-                                                    <SectionHeader text="Metadata" isSectionHovered={isHovered} />
+                                                    <SectionHeader text="Meta" isSectionHovered={isHovered} />
                                                     <motion.div
                                                         className="group relative aspect-[1.91/1] w-full overflow-hidden rounded-xl border border-faint bg-subtle box-border transition-colors cursor-zoom-in"
                                                         onClick={() => data.ogImage && window.open(data.ogImage, '_blank')}
@@ -697,6 +726,9 @@ export default function App() {
                                                         />
                                                         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                                                     </motion.div>
+                                                    {data.ogMetadata && (
+                                                        <OGMetadataSection metadata={data.ogMetadata} />
+                                                    )}
                                                 </motion.section>
                                             )}
                                         </SectionWrapper>

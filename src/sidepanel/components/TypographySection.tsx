@@ -46,7 +46,7 @@ export function TypographySection({ fonts }: Props) {
                 <FontItem
                     key={font.family}
                     font={font}
-                    sessionPangram={sessionPangram}
+                    sessionPangram={font.preview.previewText || sessionPangram}
                 />
             ))}
         </motion.div>
@@ -94,7 +94,7 @@ function FontItem({ font, sessionPangram }: { font: FontInfo; sessionPangram: st
         >
             {/* Header */}
             <div className="flex items-baseline justify-between px-0.5">
-                <span className="flex items-center gap-1.5 font-semibold text-[13px]">
+                <span className="flex items-center gap-1.5 font-medium text-[13px]">
                     {font.family}
                     <a
                         href={`https://www.google.com/search?q=${encodeURIComponent(`${font.family} font`)}&udm=50`}
@@ -160,7 +160,7 @@ function FontItem({ font, sessionPangram }: { font: FontInfo; sessionPangram: st
                                     <style>{`@font-face { font-family: '${font.family}-preview'; src: url('${font.preview.data}'); }`}</style>
                                 )}
                                 <p
-                                    className="text-[34px] leading-tight tracking-tight max-w-[300px]"
+                                    className="text-2xl tracking-tight max-w-[300px]"
                                     style={{
                                         fontFamily: font.preview.method === 'datauri'
                                             ? `'${font.family}-preview', sans-serif`
@@ -173,9 +173,7 @@ function FontItem({ font, sessionPangram }: { font: FontInfo; sessionPangram: st
                                         textOverflow: 'ellipsis',
                                         wordBreak: 'break-word',
                                         whiteSpace: 'normal',
-                                        maxHeight: 'calc(1.05em * 2.2)',
-                                        lineHeight: '1.05',
-                                        paddingBottom: '0.2em'
+                                        lineHeight: '1.2'
                                     }}
                                 >
                                     {sessionPangram}
