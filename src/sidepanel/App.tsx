@@ -30,16 +30,23 @@ function SectionWrapper({ children }: { children: (isHovered: boolean) => React.
     );
 }
 
-function SectionHeader({ text, isSectionHovered }: { text: string; isSectionHovered: boolean }) {
+function SectionHeader({ text, isSectionHovered, count }: { text: string; isSectionHovered: boolean; count?: number }) {
     return (
-        <h2 className="text-[12px] text-muted mb-4">
-            <ScrambleText text={text} trigger={isSectionHovered} />
+        <h2 className="text-[12px] text-muted mb-4 flex items-center">
+            <span className="inline-block min-w-[4ch]">
+                <ScrambleText text={text} trigger={isSectionHovered} />
+            </span>
+            {count !== undefined && (
+                <span className="ml-2 text-[10px] font-mono text-muted">
+                    {count}
+                </span>
+            )}
         </h2>
     );
 }
 
 // Cursor bubble for side panel
-function CursorBubble({ message, visible }: { message: string; visible: boolean }) {
+function CursorBubble({ message, visible, instanceKey }: { message: string; visible: boolean; instanceKey?: string | number }) {
     const cursorX = useMotionValue(-100);
     const cursorY = useMotionValue(-100);
     const [showUnderscore, setShowUnderscore] = useState(true);
@@ -78,15 +85,20 @@ function CursorBubble({ message, visible }: { message: string; visible: boolean 
         : message;
 
     return (
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
             {visible && (
                 <motion.div
+                    key={instanceKey}
                     className="fixed top-0 left-0 pointer-events-none z-[9999] bg-[#0a0a0a] text-[#f0f0f0] px-3 py-1.5 text-2xs font-mono uppercase tracking-wider rounded-full shadow-lg border border-white/5"
                     style={{ x, y }}
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ 
+                        duration: 0.6, 
+                        ease: [0.16, 1, 0.3, 1],
+                        opacity: { duration: 0.7, ease: [0.22, 1, 0.36, 1] }
+                    }}
                 >
                     {displayMessage}
                 </motion.div>
@@ -223,12 +235,39 @@ export default function App() {
         }
         scanningRef.current = true;
 
-        setData(null); // Clear data to trigger loading state
-        setRevealData(false);
+        // Update scan state immediately for button loading state
         setScanState('scanning');
-        setCursorVisible(true);
-        setCursorMessage('//_');
         setHeaderStatus('Scanning');
+        
+        // Smoothly fade out content first
+        setRevealData(false);
+        
+        // Smoothly fade out cursor bubble, then fade in with new message
+        setCursorVisible(false);
+        setTimeout(() => {
+            setCursorMessage('//_');
+            setCursorVisible(true);
+        }, 400);
+        
+        // Wait for exit animation to complete before clearing data and starting scan
+        setTimeout(async () => {
+            setData(null); // Clear data to trigger loading state
+
+            try {
+                const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+                if (tab?.id) {
+                    safeSendMessage({ type: 'START_SCAN', tabId: tab.id });
+                }
+            } catch (err) {
+                console.error('[Tracer] Error starting scan:', err);
+                setScanState('error');
+                setCursorMessage('Error, retrying');
+                setHeaderStatus('Error, retrying');
+                setCursorVisible(true);
+            } finally {
+                scanningRef.current = false;
+            }
+        }, 500);
 
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -390,7 +429,7 @@ export default function App() {
 
     return (
         <>
-            <CursorBubble message={cursorMessage} visible={cursorVisible && isHovering} />
+            <CursorBubble message={cursorMessage} visible={cursorVisible && isHovering} instanceKey={`${scanState}-${cursorMessage}`} />
 
             <div
                 className="min-h-screen w-full bg-bg flex flex-col font-sans scrollbar-gutter-stable"
@@ -504,10 +543,10 @@ export default function App() {
                         <AnimatePresence>
                             {(inspectedElement || inspectState === 'analyzing' || inspectState === 'complete') && (
                                 <motion.div
-                                    initial={{ opacity: 0, y: 12 }}
+                                    initial={{ opacity: 0, y: -8 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, scale: 0.98 }}
-                                    transition={{ duration: 0.5, ease: sexyEase }}
+                                    transition={{ duration: .88, ease: sexyEase }}
                                 >
                                     <InspectedElementCard
                                         element={inspectedElement}
@@ -527,11 +566,25 @@ export default function App() {
                                     key="content"
                                     initial="hidden"
                                     animate="show"
+                                    exit="exit"
                                     variants={{
+                                        hidden: { opacity: 0, y: 8 },
                                         show: {
+                                            opacity: 1,
+                                            y: 0,
                                             transition: {
                                                 staggerChildren: 0.28,
                                                 delayChildren: 0.1
+                                            }
+                                        },
+                                        exit: {
+                                            opacity: 0,
+                                            y: -8,
+                                            transition: {
+                                                duration: 0.5,
+                                                ease: sexyEase,
+                                                staggerChildren: 0.05,
+                                                staggerDirection: -1
                                             }
                                         }
                                     }}
@@ -613,7 +666,7 @@ export default function App() {
                                                     transition={{ duration: 1.0, ease: sexyEase }}
                                                     className=""
                                                 >
-                                                    <SectionHeader text="Tech" isSectionHovered={isHovered} />
+                                                    <SectionHeader text="Tech" isSectionHovered={isHovered} count={data.tech.length} />
                                                     <TechSection tech={data.tech} />
                                                 </motion.section>
                                             )}
