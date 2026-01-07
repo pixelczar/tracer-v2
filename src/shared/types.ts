@@ -27,6 +27,8 @@ export interface FontInfo {
     source: 'google' | 'adobe' | 'custom' | 'system';
     url?: string;
     preview: FontPreview;
+    isIconFont?: boolean;
+    iconSamples?: string[]; // Icon characters extracted from the page
 }
 
 export interface FontPreview {

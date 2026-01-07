@@ -104,6 +104,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Fabric.js': 'Fabric.svg',
     'Konva': 'Konva.svg',
     'Paper.js': 'Paper.svg',
+    'Paper': 'Paper.svg',
     'p5.js': 'p5.svg',
     'D3.js': 'D3.js.svg',
     'Chart.js': 'Chart.js.svg',
@@ -119,6 +120,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Contentful': 'Contentful.svg',
     'Sanity': 'Sanity.svg',
     'Strapi': 'Strapi.svg',
+    'Storyblok': 'Storyblok.svg',
     'Prismic': 'Prismic.svg',
     'Ghost': 'Ghost.svg',
     // Note: Missing icons will use Tracer logo as placeholder in TechItem component
@@ -160,6 +162,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Clarity': 'Microsoft Clarity.svg',
     'LinkedIn Insight Tag': 'LinkedIn.svg',
     'Microsoft Power BI': 'Microsoft Clarity.svg',
+    'Quora Pixel': 'Quora.svg',
 
     // A/B Testing
     'Optimizely': 'Optimizely.svg',

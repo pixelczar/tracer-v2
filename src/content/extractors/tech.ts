@@ -113,7 +113,15 @@ function performDetection(
                         }
                     }
                 }
-                if (matched) update(tool.name, baseConfidence);
+                if (matched) {
+                    // Reduce confidence for generic cookie patterns
+                    let cookieConfidence = baseConfidence;
+                    if (tool.name === 'Drupal' && typeof cookie.name !== 'string' && cookie.name.source === '^SESS') {
+                        // Very generic SESS pattern - require value validation
+                        cookieConfidence = cookie.value ? baseConfidence : 50;
+                    }
+                    update(tool.name, cookieConfidence);
+                }
             });
         }
 
@@ -151,7 +159,13 @@ function performDetection(
                         const match = matchedSrc.match(tool.versionScript);
                         if (match?.[1]) version = match[1];
                     }
-                    update(tool.name, baseConfidence, version);
+                    // Reduce confidence for generic patterns that might match multiple CMS
+                    let scriptConfidence = baseConfidence;
+                    if (tool.name === 'Drupal' && regex.source.includes('/modules/') && !regex.source.includes('drupal')) {
+                        // Generic /modules/ pattern is less reliable
+                        scriptConfidence = 60;
+                    }
+                    update(tool.name, scriptConfidence, version);
                 }
             });
         }
@@ -166,6 +180,10 @@ function performDetection(
                         let confidence = baseConfidence;
                         if (baseConfidence === 100 && ['Bootstrap', 'Vuetify', 'DaisyUI'].includes(tool.name)) {
                             confidence = 70;
+                        }
+                        // Reduce confidence for generic class patterns
+                        if (tool.name === 'Drupal' && selector.includes('[class*=') && !selector.includes('drupal')) {
+                            confidence = 60;
                         }
 
                         let version: string | undefined;
@@ -290,6 +308,46 @@ function performDetection(
     // Prevent duplicate v0 entries
     if (findings.has('v0')) {
         findings.delete('Vercel v0');
+    }
+
+    // ========== CMS CONFLICT RESOLUTION ==========
+    // WordPress vs Drupal: If both detected, prioritize based on confidence and specific signals
+    if (findings.has('WordPress') && findings.has('Drupal')) {
+        const wpData = findings.get('WordPress')!;
+        const drupalData = findings.get('Drupal')!;
+        
+        // Check for WordPress-specific strong signals
+        const hasWpContent = scriptSrcs.some(src => /\/wp-content\//.test(src));
+        const hasWpIncludes = scriptSrcs.some(src => /\/wp-includes\//.test(src));
+        const hasWpCookie = parsedCookies.has('wordpress_logged_in') || Array.from(parsedCookies.keys()).some(k => /^wp-/i.test(k));
+        
+        // Check for Drupal-specific strong signals
+        const hasDrupalMeta = document.querySelector('meta[name="generator"][content*="Drupal" i]');
+        const hasDrupalDataAttr = document.querySelector('[data-drupal-]');
+        const hasDrupalCore = scriptSrcs.some(src => /\/misc\/drupal\.js|\/core\/misc\/drupal/.test(src));
+        
+        // Count strong signals
+        const wpSignals = (hasWpContent ? 1 : 0) + (hasWpIncludes ? 1 : 0) + (hasWpCookie ? 1 : 0);
+        const drupalSignals = (hasDrupalMeta ? 1 : 0) + (hasDrupalDataAttr ? 1 : 0) + (hasDrupalCore ? 1 : 0);
+        
+        // If WordPress has strong signals and Drupal doesn't, remove Drupal
+        if (wpSignals >= 2 && drupalSignals === 0) {
+            findings.delete('Drupal');
+        }
+        // If Drupal has strong signals and WordPress doesn't, remove WordPress
+        else if (drupalSignals >= 2 && wpSignals === 0) {
+            findings.delete('WordPress');
+        }
+        // If both have signals, keep the one with higher confidence
+        else if (wpData.confidence > drupalData.confidence + 10) {
+            findings.delete('Drupal');
+        } else if (drupalData.confidence > wpData.confidence + 10) {
+            findings.delete('WordPress');
+        }
+        // Default: if WordPress has any strong signal, prefer it (WordPress is more common)
+        else if (wpSignals > 0) {
+            findings.delete('Drupal');
+        }
     }
 
     // ========== CONVERT TO TechInfo ==========

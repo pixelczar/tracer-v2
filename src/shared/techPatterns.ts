@@ -136,6 +136,7 @@ export const TECH_PATTERNS: TechPattern[] = [
     { name: 'Konva', category: 'canvas', url: 'https://konvajs.org', isSignal: true, patterns: { globals: ['Konva'] } },
     { name: 'Paper.js', category: 'canvas', url: 'http://paperjs.org', isSignal: true, patterns: { globals: ['paper'] } },
     { name: 'p5.js', category: 'canvas', url: 'https://p5js.org', isSignal: true, patterns: { globals: ['p5'] } },
+    { name: 'Paper', category: 'shaders', url: 'https://paper.design', isSignal: true, patterns: { dom: ['[data-paper-shader]'], scripts: [/paper\.design/], html: [/paper-shader/i] } },
 
     // Data Visualization
     { name: 'D3.js', category: 'dataviz', url: 'https://d3js.org', isSignal: true, patterns: { globals: ['d3'] } },
@@ -147,13 +148,14 @@ export const TECH_PATTERNS: TechPattern[] = [
     { name: 'Plotly', category: 'dataviz', url: 'https://plotly.com', isSignal: false, patterns: { globals: ['Plotly'] } },
 
     // ==================== CONTENT & CMS ====================
-    { name: 'WordPress', category: 'cms', url: 'https://wordpress.org', isSignal: false, patterns: { meta: [{ name: 'generator', content: /WordPress/i }], scripts: [/\/wp-content\//, /\/wp-includes\//], cookies: [{ name: 'wordpress_logged_in' }, { name: /^wp-/i }] } },
+    { name: 'WordPress', category: 'cms', url: 'https://wordpress.org', isSignal: false, patterns: { meta: [{ name: 'generator', content: /WordPress/i }], scripts: [/\/wp-content\//, /\/wp-includes\//], cookies: [{ name: 'wordpress_logged_in' }, { name: /^wp-/i }] }, excludes: ['Drupal'] },
     { name: 'Contentful', category: 'cms', url: 'https://contentful.com', isSignal: false, patterns: { scripts: [/contentful/] } },
     { name: 'Sanity', category: 'cms', url: 'https://sanity.io', isSignal: true, patterns: { globals: ['sanity', '__sanity'], scripts: [/sanity\.io/, /sanitycdn\.com/, /sanity-studio/] } },
     { name: 'Strapi', category: 'cms', url: 'https://strapi.io', isSignal: true, patterns: { globals: ['strapi'], meta: [{ name: 'generator', content: /Strapi/i }] } },
+    { name: 'Storyblok', category: 'cms', url: 'https://storyblok.com', isSignal: true, patterns: { scripts: [/storyblok/, /storyblokcdn\.com/], globals: ['storyblok'], dom: ['[data-storyblok]'] } },
     { name: 'Prismic', category: 'cms', url: 'https://prismic.io', isSignal: false, patterns: { scripts: [/prismic\.io/] } },
     { name: 'Ghost', category: 'cms', url: 'https://ghost.org', isSignal: false, patterns: { meta: [{ name: 'generator', content: /Ghost/i }] } },
-    { name: 'Drupal', category: 'cms', url: 'https://drupal.org', isSignal: false, patterns: { meta: [{ name: 'generator', content: /Drupal/i }], scripts: [/\/sites\/.*\/files\//, /\/modules\//, /\/themes\//], cookies: [{ name: /^SESS/i }, { name: /^SSESS/i }], dom: ['[data-drupal-]'] } },
+    { name: 'Drupal', category: 'cms', url: 'https://drupal.org', isSignal: false, patterns: { meta: [{ name: 'generator', content: /Drupal/i }], scripts: [/\/sites\/.*\/files\//, /\/misc\/drupal\.js/, /\/core\/misc\/drupal/], cookies: [{ name: /^SESS[0-9a-f]{32}$/i }, { name: /^SSESS[0-9a-f]{32}$/i }], dom: ['[data-drupal-]', '[class*="drupal"]'] }, excludes: ['WordPress'], confidence: 85 },
     { name: 'Joomla', category: 'cms', url: 'https://joomla.org', isSignal: false, patterns: { meta: [{ name: 'generator', content: /Joomla/i }], scripts: [/\/media\/joomla/, /\/components\//], cookies: [{ name: /^joomla/i }], dom: ['[class*="joomla"]'] } },
     { name: 'Craft CMS', category: 'cms', url: 'https://craftcms.com', isSignal: true, patterns: { meta: [{ name: 'generator', content: /Craft CMS/i }], scripts: [/craftcms/, /\/cpresources\//], cookies: [{ name: 'CraftSessionId' }] } },
     { name: 'Payload', category: 'cms', url: 'https://payloadcms.com', isSignal: true, patterns: { scripts: [/payloadcms/, /\/api\//], globals: ['payload'] } },
@@ -195,6 +197,7 @@ export const TECH_PATTERNS: TechPattern[] = [
     { name: 'Amplitude', category: 'analytics', url: 'https://amplitude.com', isSignal: false, patterns: { globals: ['amplitude'], scripts: [/amplitude\.com/] } },
     { name: 'Mixpanel', category: 'analytics', url: 'https://mixpanel.com', isSignal: false, patterns: { globals: ['mixpanel'], scripts: [/mixpanel\.com/] } },
     { name: 'Heap', category: 'analytics', url: 'https://heap.io', isSignal: false, patterns: { globals: ['heap'], scripts: [/heap\.io/] } },
+    { name: 'Quora Pixel', category: 'analytics', url: 'https://www.quora.com/business', isSignal: false, patterns: { scripts: [/qevents\.quora\.com/, /quora\.com\/pixel/] } },
     { name: 'FullStory', category: 'heatmaps', url: 'https://fullstory.com', isSignal: false, patterns: { globals: ['FS'], scripts: [/fullstory\.com/] } },
     { name: 'Hotjar', category: 'heatmaps', url: 'https://hotjar.com', isSignal: false, patterns: { globals: ['hj', '_hjSettings'], scripts: [/hotjar\.com/], cookies: [{ name: /^_hj/ }] } },
     { name: 'LogRocket', category: 'heatmaps', url: 'https://logrocket.com', isSignal: false, patterns: { globals: ['LogRocket'], scripts: [/logrocket/] } },

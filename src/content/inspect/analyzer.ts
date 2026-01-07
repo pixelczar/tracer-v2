@@ -113,6 +113,17 @@ function detectElementTech(el: Element): TechInfo[] {
         }
     }
 
+    // Paper shaders (works on any element)
+    if (htmlEl.dataset.paperShader || el.closest('[data-paper-shader]')) {
+        tech.push({
+            name: 'Paper',
+            confidence: 100,
+            category: 'shaders',
+            isSignal: true,
+            url: 'https://paper.design',
+        });
+    }
+
     // Lottie
     if (el.tagName === 'LOTTIE-PLAYER' || el.tagName === 'DOTLOTTIE-PLAYER') {
         tech.push({
@@ -220,7 +231,7 @@ function extractElementStyles(el: Element): InspectedElement['styles'] {
 
 function extractRelevantAttributes(el: Element): Record<string, string> {
     const attrs: Record<string, string> = {};
-    const interesting = ['class', 'id', 'data-engine', 'data-spline', 'data-framer-appear-id', 'data-rive'];
+    const interesting = ['class', 'id', 'data-engine', 'data-spline', 'data-framer-appear-id', 'data-rive', 'data-paper-shader'];
 
     interesting.forEach(name => {
         const value = el.getAttribute(name);

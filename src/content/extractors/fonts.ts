@@ -10,6 +10,8 @@ interface FontDetails {
     source: 'google' | 'adobe' | 'custom' | 'system';
     url?: string;
     isMono: boolean;
+    isIconFont: boolean;
+    iconSamples?: string[];
 }
 
 export async function extractFonts(): Promise<FontInfo[]> {
@@ -24,11 +26,19 @@ export async function extractFonts(): Promise<FontInfo[]> {
     // 3. Check for Adobe Fonts
     detectAdobeFonts(fontMap);
 
-    // 4. Generate previews
+    // 4. Detect icon fonts
+    detectIconFonts(fontMap);
+
+    // 5. Extract icon samples for icon fonts
+    extractIconSamples(fontMap);
+
+    // 6. Generate previews
     const fonts = await Promise.all(
         Array.from(fontMap.values()).map(async (details) => ({
             ...details,
             preview: await generatePreview(details),
+            isIconFont: details.isIconFont,
+            iconSamples: details.iconSamples,
         }))
     );
 
@@ -58,6 +68,7 @@ function scanComputedFonts(fontMap: Map<string, FontDetails>) {
             sizes: [],
             source: 'custom' as const,
             isMono: rawFamily.toLowerCase().includes('monospace'),
+            isIconFont: false,
         };
 
         const weight = computed.fontWeight;
@@ -104,6 +115,236 @@ function detectAdobeFonts(fontMap: Map<string, FontDetails>) {
             }
         });
     }
+}
+
+function detectIconFonts(fontMap: Map<string, FontDetails>) {
+    // Icon font name patterns
+    const iconFontNamePatterns = [
+        /^Material Icons$/i,
+        /^Material Symbols/i,
+        /^Font Awesome/i,
+        /^FontAwesome/i,
+        /^IcoMoon/i,
+        /^icomoon/i,
+        /^Fontello/i,
+        /^fontello/i,
+        /^Iconic/i,
+        /^iconic/i,
+        /^Font Custom/i,
+        /^fontcustom/i,
+        /^Icon Font/i,
+        /^iconfont/i,
+        /^Glyphicons/i,
+        /^glyphicons/i,
+        /^Dashicons/i,
+        /^dashicons/i,
+        /^Genericons/i,
+        /^genericons/i,
+        /^Foundation Icons/i,
+        /^foundation-icons/i,
+        /^Elusive Icons/i,
+        /^elusive-icons/i,
+        /^Typicons/i,
+        /^typicons/i,
+        /^Entypo/i,
+        /^entypo/i,
+        /^Linecons/i,
+        /^linecons/i,
+        /^Zocial/i,
+        /^zocial/i,
+    ];
+
+    // Check name patterns
+    fontMap.forEach(font => {
+        if (iconFontNamePatterns.some(pattern => pattern.test(font.family))) {
+            font.isIconFont = true;
+        }
+    });
+
+    // Check usage patterns - look for elements using icon font classes
+    const iconClassPatterns = [
+        /^fa$/,           // Font Awesome base
+        /^fa[srb]$/,      // Font Awesome solid/regular/brands
+        /^fas$/,          // Font Awesome solid
+        /^far$/,          // Font Awesome regular
+        /^fab$/,          // Font Awesome brands
+        /^material-icons$/i,
+        /^material-symbols/i,
+        /^icon-/i,        // Generic icon- prefix
+        /^ico-/i,         // Ico- prefix
+        /^glyphicon/i,    // Glyphicons
+        /^dashicons/i,    // Dashicons
+        /^genericon/i,    // Genericons
+    ];
+
+    // Sample elements to check for icon font usage
+    const elements = document.querySelectorAll('body *');
+    const sampled = Array.from(elements).slice(0, 500);
+
+    sampled.forEach(el => {
+        if (isTracerElement(el)) return;
+
+        const className = String(el.className || '');
+        const classList = className.split(/\s+/);
+
+        // Check if element has icon-related classes
+        const hasIconClass = iconClassPatterns.some(pattern => 
+            classList.some(cls => pattern.test(cls))
+        );
+
+        // Check for icon-related attributes (more specific)
+        const hasIconAttr = el.hasAttribute('data-icon') || 
+                           (el.getAttribute('aria-label')?.toLowerCase().includes('icon'));
+
+        // Only mark as icon font if element has icon classes AND the font is actually being used
+        // Don't mark based on just <i> tags or generic spans - they might use regular fonts
+        if (hasIconClass || hasIconAttr) {
+            const computed = getComputedStyle(el);
+            const rawFamily = computed.fontFamily;
+            const family = rawFamily.split(',')[0].replace(/["']/g, '').trim();
+            
+            // Only mark if the font matches known icon font patterns OR
+            // if the element has strong icon indicators (icon classes + icon attributes)
+            if (family) {
+                const font = fontMap.get(family);
+                if (font) {
+                    // Check if font name matches icon patterns OR element has strong icon signals
+                    const matchesIconPattern = iconFontNamePatterns.some(pattern => pattern.test(family));
+                    const hasStrongIconSignal = hasIconClass && (hasIconAttr || el.hasAttribute('data-icon'));
+                    
+                    if (matchesIconPattern || hasStrongIconSignal) {
+                        font.isIconFont = true;
+                    }
+                }
+            }
+        }
+    });
+}
+
+function extractIconSamples(fontMap: Map<string, FontDetails>) {
+    // Only process icon fonts
+    const iconFonts = Array.from(fontMap.values()).filter(f => f.isIconFont);
+    if (iconFonts.length === 0) return;
+
+    const iconClassPatterns = [
+        /^fa$/, /^fa[srb]$/, /^fas$/, /^far$/, /^fab$/, /^fa-/,
+        /^material-icons$/i, /^material-symbols/i, /^material-symbol/i,
+        /^icon-/i, /^ico-/i, /^glyphicon/i, /^dashicons/i, /^genericon/i,
+    ];
+
+    // Helper to extract Unicode character from CSS content
+    const extractUnicodeChar = (content: string): string | null => {
+        // Handle formats like "\f015", "\\f015", "\uf015"
+        const unicodeMatch = content.match(/\\[0-9a-fA-F]{1,6}/i);
+        if (unicodeMatch) {
+            const codePoint = parseInt(unicodeMatch[0].slice(1), 16);
+            if (codePoint >= 0xE000 && codePoint <= 0xF8FF) { // Private Use Area
+                return String.fromCharCode(codePoint);
+            }
+        }
+        // Handle quoted strings
+        const quotedMatch = content.match(/^["'](.{1,2})["']$/);
+        if (quotedMatch) {
+            return quotedMatch[1];
+        }
+        // Direct single/double character
+        const cleaned = content.replace(/^["']|["']$/g, '');
+        if (cleaned.length <= 2) {
+            return cleaned;
+        }
+        return null;
+    };
+
+    // Extract samples for each icon font
+    iconFonts.forEach(font => {
+        const samples: string[] = [];
+        const elements = document.querySelectorAll('body *');
+        const sampled = Array.from(elements).slice(0, 2000);
+
+        for (const el of sampled) {
+            if (samples.length >= 16) break; // Limit to 16 samples
+            if (isTracerElement(el)) continue;
+
+            const className = String(el.className || '');
+            const classList = className.split(/\s+/);
+            const hasIconClass = iconClassPatterns.some(pattern => 
+                classList.some(cls => pattern.test(cls))
+            );
+
+            if (hasIconClass || el.hasAttribute('data-icon')) {
+                const computed = getComputedStyle(el);
+                const rawFamily = computed.fontFamily;
+                const family = rawFamily.split(',')[0].replace(/["']/g, '').trim();
+
+                if (family === font.family) {
+                    let iconChar = '';
+                    
+                    // Try ::before pseudo-element first
+                    try {
+                        const beforeContent = window.getComputedStyle(el, '::before').content;
+                        if (beforeContent && beforeContent !== 'none' && beforeContent !== '""' && beforeContent !== "''") {
+                            const extracted = extractUnicodeChar(beforeContent);
+                            if (extracted) iconChar = extracted;
+                        }
+                    } catch (e) {
+                        // Some browsers don't support pseudo-element in getComputedStyle
+                    }
+
+                    // Fallback: Check text content
+                    if (!iconChar) {
+                        const text = el.textContent?.trim();
+                        if (text && text.length === 1 && !className.includes('material')) {
+                            iconChar = text;
+                        }
+                    }
+
+                    // Try ::after as fallback
+                    if (!iconChar) {
+                        try {
+                            const afterContent = window.getComputedStyle(el, '::after').content;
+                            if (afterContent && afterContent !== 'none' && afterContent !== '""' && afterContent !== "''") {
+                                const extracted = extractUnicodeChar(afterContent);
+                                if (extracted) iconChar = extracted;
+                            }
+                        } catch (e) {
+                            // Ignore
+                        }
+                    }
+
+                    if (iconChar && !samples.includes(iconChar)) {
+                        samples.push(iconChar);
+                    }
+                }
+            }
+        }
+
+        // If we didn't find enough samples, try scanning all elements using the font
+        if (samples.length < 8) {
+            for (const el of Array.from(document.querySelectorAll('body *')).slice(0, 1000)) {
+                if (samples.length >= 16) break;
+                if (isTracerElement(el)) continue;
+                
+                const computed = getComputedStyle(el);
+                const rawFamily = computed.fontFamily;
+                const family = rawFamily.split(',')[0].replace(/["']/g, '').trim();
+                
+                if (family === font.family) {
+                    const text = el.textContent?.trim();
+                    if (text && text.length === 1 && !samples.includes(text)) {
+                        const code = text.charCodeAt(0);
+                        // Private Use Area or high Unicode ranges often contain icons
+                        if ((code >= 0xE000 && code <= 0xF8FF) || code > 0x1F000) {
+                            samples.push(text);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (samples.length > 0) {
+            font.iconSamples = samples;
+        }
+    });
 }
 
 const PANGRAMS = [

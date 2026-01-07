@@ -3,11 +3,11 @@ import '@fontsource/geist-sans';
 import { AnimatePresence, motion, useMotionValue, useSpring } from 'motion/react';
 import { ColorSection } from './components/ColorSection';
 import { TypographySection } from './components/TypographySection';
+import { IconFontsSection } from './components/IconFontsSection';
 import { TechSection } from './components/TechSection';
 import { InspectedElementCard } from './components/InspectedElement';
 import { ThemePicker } from './components/ThemePicker';
 import { IconInspect, IconRefresh } from './components/Icons';
-import { DecryptedText } from './components/DecryptedText';
 import { ScrambleText } from './components/ScrambleText';
 import type { ScanResult, ScanState, InspectedElement, InspectState } from '../shared/types';
 import { safeSendMessage, safeAddMessageListener, isExtensionContextValid } from '../shared/chromeUtils';
@@ -42,6 +42,7 @@ function SectionHeader({ text, isSectionHovered }: { text: string; isSectionHove
 function CursorBubble({ message, visible }: { message: string; visible: boolean }) {
     const cursorX = useMotionValue(-100);
     const cursorY = useMotionValue(-100);
+    const [showUnderscore, setShowUnderscore] = useState(true);
 
     const springConfig = { damping: 25, stiffness: 400 };
     const x = useSpring(cursorX, springConfig);
@@ -56,18 +57,38 @@ function CursorBubble({ message, visible }: { message: string; visible: boolean 
         return () => window.removeEventListener('mousemove', move);
     }, [cursorX, cursorY]);
 
+    // Blink underscore for "//_" message
+    useEffect(() => {
+        if (message === '//_') {
+            const interval = setInterval(() => {
+                setShowUnderscore(prev => !prev);
+            }, 530);
+            return () => clearInterval(interval);
+        } else {
+            setShowUnderscore(true);
+        }
+    }, [message]);
+
+    const displayMessage = message === '//_' 
+        ? (
+            <span style={{ letterSpacing: '-0.1em' }}>
+                //<span style={{ opacity: showUnderscore ? 1 : 0, color: '#eaff00' }}>_</span>
+            </span>
+        )
+        : message;
+
     return (
         <AnimatePresence>
             {visible && (
                 <motion.div
                     className="fixed top-0 left-0 pointer-events-none z-[9999] bg-[#0a0a0a] text-[#f0f0f0] px-3 py-1.5 text-2xs font-mono uppercase tracking-wider rounded-full shadow-lg border border-white/5"
                     style={{ x, y }}
-                    initial={{ opacity: 0, scale: 0.9 }}
+                    initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.1 }}
+                    transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                 >
-                    {message}
+                    {displayMessage}
                 </motion.div>
             )}
         </AnimatePresence>
@@ -86,38 +107,6 @@ function TracerLogo({ theme }: { theme: 'light' | 'dark' }) {
     );
 }
 
-function LoadingState({ status, onFinished }: { status: string; onFinished?: () => void }) {
-    return (
-        <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, transition: { duration: 0.6, ease: sexyEase } }}
-            className="flex-1 flex flex-col h-full"
-        >
-            <div className="flex-1 flex flex-col items-start justify-start pt-2">
-                <motion.div
-                    initial={{ opacity: 0, x: -4 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.4, ease: sexyEase }}
-                >
-                    <DecryptedText
-                        text={status || "Initializing"}
-                        className={`font-medium tracking-[0.1em] ${status?.includes('ERROR') ? 'text-red-500' : status === 'Error' ? 'text-red-500' : 'text-muted'}`}
-                        onComplete={() => {
-                            if (status === 'Complete') {
-                                // Anticipation delay before reveal
-                                setTimeout(() => {
-                                    onFinished?.();
-                                }, 500);
-                            }
-                        }}
-                    />
-                </motion.div>
-            </div>
-        </motion.div>
-    );
-}
-
 export default function App() {
     const [theme, setTheme] = useState<'light' | 'dark'>('dark');
     const [scanState, setScanState] = useState<ScanState>('idle');
@@ -127,6 +116,7 @@ export default function App() {
     const [currentDomain, setCurrentDomain] = useState<string>('');
     const [currentFavicon, setCurrentFavicon] = useState<string>('');
     const [cursorMessage, setCursorMessage] = useState('');
+    const [headerStatus, setHeaderStatus] = useState('');
     const [cursorVisible, setCursorVisible] = useState(false);
     const [isHovering, setIsHovering] = useState(false);
     const [revealData, setRevealData] = useState(false);
@@ -168,9 +158,11 @@ export default function App() {
             switch (message.type) {
                 case 'SCAN_PROGRESS': {
                     const status = (message.payload as { status: string }).status;
-                    setCursorMessage(prev => {
-                        if (prev === 'Complete' || prev === 'Error' || prev?.includes('ERROR')) return prev;
-                        // Avoid repeats or backward status if somehow they arrive out of order
+                    // Set cursor bubble to "//_" during scanning
+                    setCursorMessage('//_');
+                    // Set header status to actual progress message
+                    setHeaderStatus(prev => {
+                        if (prev === 'Complete' || prev === 'Error' || prev?.toLowerCase().includes('error')) return prev;
                         if (prev === status) return prev;
                         return status;
                     });
@@ -179,12 +171,14 @@ export default function App() {
                 case 'SCAN_COMPLETE':
                     setData(message.payload as ScanResult);
                     setScanState('complete');
-                    setCursorMessage('Complete');
+                    setHeaderStatus('Complete');
+                    // Keep "//_" in cursor bubble, just hide it after delay
                     setTimeout(() => setCursorVisible(false), 2000);
                     break;
                 case 'SCAN_ERROR':
                     setScanState('error');
-                    setCursorMessage('ERROR, retrying');
+                    setCursorMessage('Error, retrying');
+                    setHeaderStatus('Error, retrying');
                     setCursorVisible(true);
                     break;
                 case 'INSPECT_COMPLETE':
@@ -222,7 +216,8 @@ export default function App() {
         if (!isExtensionContextValid()) {
             console.warn('[Tracer] Extension context invalidated, cannot start scan');
             setScanState('error');
-            setCursorMessage('ERROR, retrying');
+            setCursorMessage('Error, retrying');
+            setHeaderStatus('Error, retrying');
             setCursorVisible(true);
             return;
         }
@@ -232,7 +227,8 @@ export default function App() {
         setRevealData(false);
         setScanState('scanning');
         setCursorVisible(true);
-        setCursorMessage('Scanning');
+        setCursorMessage('//_');
+        setHeaderStatus('Scanning');
 
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -242,7 +238,8 @@ export default function App() {
         } catch (err) {
             console.error('[Tracer] Error starting scan:', err);
             setScanState('error');
-            setCursorMessage('ERROR, retrying');
+            setCursorMessage('Error, retrying');
+            setHeaderStatus('Error, retrying');
             setCursorVisible(true);
         } finally {
             scanningRef.current = false;
@@ -253,6 +250,17 @@ export default function App() {
     useEffect(() => {
         startScanRef.current = startScan;
     }, [startScan]);
+
+    // Trigger reveal when status is Complete
+    useEffect(() => {
+        if (headerStatus === 'Complete' && data && !revealData) {
+            // Wait for scramble animation to complete, then reveal
+            const timer = setTimeout(() => {
+                setRevealData(true);
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [headerStatus, data, revealData]);
 
     // Safety check: If data is available but loading screen is stuck, force reveal
     useEffect(() => {
@@ -279,7 +287,8 @@ export default function App() {
                     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
                     if (tab?.id) {
                         // Update message to show we're refreshing
-                        setCursorMessage('ERROR, REFRESHING PAGE...');
+                        setCursorMessage('Error, refreshing page...');
+                        setHeaderStatus('Error, refreshing page...');
                         
                         // Refresh the tab
                         await chrome.tabs.reload(tab.id);
@@ -293,6 +302,7 @@ export default function App() {
                                 setTimeout(() => {
                                     retryRef.current = false;
                                     setCursorMessage('Retrying scan...');
+                                    setHeaderStatus('Retrying scan...');
                                     startScanRef.current?.();
                                 }, 1500);
                             }
@@ -306,6 +316,7 @@ export default function App() {
                             if (retryRef.current) {
                                 retryRef.current = false;
                                 setCursorMessage('Retrying scan...');
+                                setHeaderStatus('Retrying scan...');
                                 startScanRef.current?.();
                             }
                         }, 10000);
@@ -315,7 +326,8 @@ export default function App() {
                 } catch (err) {
                     console.error('[Tracer] Error refreshing tab:', err);
                     retryRef.current = false;
-                    setCursorMessage('ERROR, RETRYING');
+                    setCursorMessage('Error, retrying');
+                    setHeaderStatus('Error, retrying');
                 }
             };
 
@@ -370,6 +382,7 @@ export default function App() {
 
     const isLoading = scanState === 'scanning' || scanState === 'processing';
     const isInspecting = inspectState === 'selecting' || inspectState === 'analyzing';
+    const showHeader = revealData;
 
     const rawDomain = data?.domain || currentDomain || '';
     const displayDomain = rawDomain.startsWith('www.') ? rawDomain.slice(4) : rawDomain;
@@ -380,69 +393,113 @@ export default function App() {
             <CursorBubble message={cursorMessage} visible={cursorVisible && isHovering} />
 
             <div
-                className="min-h-screen w-full bg-bg flex flex-col font-sans"
+                className="min-h-screen w-full bg-bg flex flex-col font-sans scrollbar-gutter-stable"
                 onMouseEnter={() => setIsHovering(true)}
                 onMouseLeave={() => setIsHovering(false)}
             >
-                <div className="w-full max-w-96 mx-auto flex flex-col min-h-screen">
-                    <header className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-faint">
+                <div className="w-full max-w-96 mx-auto flex flex-col min-h-screen scrollbar-gutter-stable">
+                    <header className="flex items-center justify-between px-3 pt-3 pb-2">
                         <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                            {displayFavicon && (
-                                <motion.img
-                                    key={`favicon-${displayFavicon}`}
-                                    src={displayFavicon}
-                                    alt=""
-                                    className="w-5 h-5 rounded flex-shrink-0"
-                                    initial={false}
-                                    animate={{ opacity: isLoading ? 0 : 1 }}
-                                    transition={{ duration: 0.4, ease: sexyEase }}
-                                />
-                            )}
-                            {displayDomain && (
-                                <motion.span
-                                    key={`domain-${rawDomain}`}
-                                    className="font-medium text-sm truncate"
-                                    initial={false}
-                                    animate={{ opacity: isLoading ? 0 : 1 }}
-                                    transition={{ duration: 0.6, ease: sexyEase }}
+                            {!revealData && headerStatus ? (
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ duration: 0.3, ease: sexyEase }}
+                                    className="flex items-center"
                                 >
-                                    {displayDomain}
-                                </motion.span>
-                            )}
+                                    <h2 className={`text-[12px] ${headerStatus?.toLowerCase().includes('error') ? 'text-accent' : 'text-muted'}`}>
+                                        <ScrambleText key={headerStatus} text={headerStatus} trigger={true} />
+                                    </h2>
+                                </motion.div>
+                            ) : revealData ? (
+                                <motion.div
+                                    className="flex items-center gap-2.5 flex-1 min-w-0"
+                                    initial="hidden"
+                                    animate="visible"
+                                    variants={{
+                                        hidden: { opacity: 0, y: -3 },
+                                        visible: { opacity: 1, y: 0 }
+                                    }}
+                                    transition={{ duration: 0.5, ease: sexyEase }}
+                                >
+                                    {displayFavicon && (
+                                        <img
+                                            src={displayFavicon}
+                                            alt=""
+                                            className="w-5 h-5 rounded flex-shrink-0"
+                                        />
+                                    )}
+                                    {displayDomain && (
+                                        <span className="font-medium text-sm truncate">
+                                            {displayDomain}
+                                        </span>
+                                    )}
+                                </motion.div>
+                            ) : null}
                         </div>
-                        <div className="flex items-center gap-0.5 flex-shrink-0">
-                            <button
+                        <motion.div 
+                            className="flex items-center gap-0.5 flex-shrink-0"
+                            initial="hidden"
+                            animate={showHeader ? "visible" : "hidden"}
+                            variants={{
+                                hidden: { opacity: 0 },
+                                visible: {
+                                    opacity: 1,
+                                    transition: {
+                                        staggerChildren: 0.08,
+                                        delayChildren: 0.1
+                                    }
+                                }
+                            }}
+                        >
+                            <motion.button
                                 onClick={startScan}
                                 disabled={isLoading}
-                                className={`
-                                    w-8 h-8 rounded-md flex items-center justify-center
-                                    transition-all duration-150
-                                    border border-transparent text-fg opacity-60 hover:border-faint hover:opacity-100
-                                    disabled:opacity-30 disabled:cursor-not-allowed
-                                    active:scale-95
-                                `}
+                                className="
+                                    w-8 h-8 flex items-center justify-center rounded-md flex-shrink-0
+                                    text-fg opacity-40 transition-all
+                                    border border-transparent hover:opacity-100
+                                    disabled:opacity-20
+                                "
                                 title="Rescan"
+                                variants={{
+                                    hidden: { opacity: 0, y: -3 },
+                                    visible: { opacity: 0.4, y: 0 }
+                                }}
+                                transition={{ duration: 0.5, ease: sexyEase }}
                             >
-                                <IconRefresh className={isLoading ? 'animate-spin' : ''} />
-                            </button>
-                            <button
+                                <IconRefresh />
+                            </motion.button>
+                            <motion.button
                                 onClick={isInspecting ? stopInspect : startInspect}
                                 className={`
-                                    w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0
-                                    transition-all duration-150
-                                    ${isInspecting
-                                        ? 'bg-accent text-black'
-                                        : 'border border-transparent text-fg opacity-50 hover:border-faint hover:opacity-100'
+                                    w-8 h-8 flex items-center justify-center rounded-md flex-shrink-0
+                                    transition-all border border-transparent
+                                    ${isInspecting 
+                                        ? 'bg-accent text-black' 
+                                        : 'text-fg opacity-40 hover:opacity-100'
                                     }
                                 `}
+                                variants={{
+                                    hidden: { opacity: 0, y: -3 },
+                                    visible: { y: 0 }
+                                }}
+                                animate={showHeader 
+                                    ? { 
+                                        opacity: isInspecting ? 1 : 0.4,
+                                        y: 0 
+                                    } 
+                                    : { opacity: 0, y: -3 }
+                                }
+                                transition={{ duration: 0.5, ease: sexyEase }}
                             >
                                 <IconInspect />
-                            </button>
+                            </motion.button>
                             <ThemePicker theme={theme} setTheme={setTheme} />
-                        </div>
+                        </motion.div>
                     </header>
 
-                    <main className="flex-1 px-4 py-4 flex flex-col gap-10 overflow-y-scroll relative">
+                    <main className="flex-1 pl-4 pr-2 py-2 flex flex-col gap-10 overflow-y-scroll relative scrollbar-gutter-stable">
                         {/* Inspected Element - Renders independently of scan data */}
                         <AnimatePresence>
                             {(inspectedElement || inspectState === 'analyzing' || inspectState === 'complete') && (
@@ -465,13 +522,7 @@ export default function App() {
                         </AnimatePresence>
 
                         <AnimatePresence mode="wait">
-                            {!revealData ? (
-                                <LoadingState
-                                    key="loading"
-                                    status={cursorMessage}
-                                    onFinished={() => setRevealData(true)}
-                                />
-                            ) : data ? (
+                            {revealData && data ? (
                                 <motion.div
                                     key="content"
                                     initial="hidden"
@@ -479,14 +530,20 @@ export default function App() {
                                     variants={{
                                         show: {
                                             transition: {
-                                                staggerChildren: 0.16,
-                                                delayChildren: 0.6
+                                                staggerChildren: 0.28,
+                                                delayChildren: 0.1
                                             }
                                         }
                                     }}
                                     className="flex flex-col gap-6"
                                 >
+                                    {(() => {
+                                        // Filter fonts into regular and icon fonts
+                                        const regularFonts = data.fonts.filter(f => !f.isIconFont);
+                                        const iconFonts = data.fonts.filter(f => f.isIconFont);
 
+                                        return (
+                                            <>
                                     {/* Colors */}
                                     {data.colors.length > 0 && (
                                         <SectionWrapper>
@@ -496,7 +553,7 @@ export default function App() {
                                                         hidden: { opacity: 0, y: 6 },
                                                         show: { opacity: 1, y: 0 }
                                                     }}
-                                                    transition={{ duration: 1.2, ease: sexyEase }}
+                                                    transition={{ duration: 1.0, ease: sexyEase }}
                                                     className="group"
                                                 >
                                                     <SectionHeader text="Colors" isSectionHovered={isHovered} />
@@ -507,7 +564,7 @@ export default function App() {
                                     )}
 
                                     {/* Typography */}
-                                    {data.fonts.length > 0 && (
+                                    {regularFonts.length > 0 && (
                                         <SectionWrapper>
                                             {(isHovered) => (
                                                 <motion.section
@@ -515,11 +572,30 @@ export default function App() {
                                                         hidden: { opacity: 0, y: 6 },
                                                         show: { opacity: 1, y: 0 }
                                                     }}
-                                                    transition={{ duration: 1.2, ease: sexyEase }}
+                                                    transition={{ duration: 1.0, ease: sexyEase }}
                                                     className="group"
                                                 >
                                                     <SectionHeader text="Typography" isSectionHovered={isHovered} />
-                                                    <TypographySection fonts={data.fonts} />
+                                                    <TypographySection fonts={regularFonts} />
+                                                </motion.section>
+                                            )}
+                                        </SectionWrapper>
+                                    )}
+
+                                    {/* Icon Fonts */}
+                                    {iconFonts.length > 0 && (
+                                        <SectionWrapper>
+                                            {(isHovered) => (
+                                                <motion.section
+                                                    variants={{
+                                                        hidden: { opacity: 0, y: 6 },
+                                                        show: { opacity: 1, y: 0 }
+                                                    }}
+                                                    transition={{ duration: 1.0, ease: sexyEase }}
+                                                    className="group"
+                                                >
+                                                    <SectionHeader text="Icons" isSectionHovered={isHovered} />
+                                                    <IconFontsSection fonts={iconFonts} />
                                                 </motion.section>
                                             )}
                                         </SectionWrapper>
@@ -534,7 +610,7 @@ export default function App() {
                                                         hidden: { opacity: 0, y: 6 },
                                                         show: { opacity: 1, y: 0 }
                                                     }}
-                                                    transition={{ duration: 1.2, ease: sexyEase }}
+                                                    transition={{ duration: 1.0, ease: sexyEase }}
                                                     className=""
                                                 >
                                                     <SectionHeader text="Tech" isSectionHovered={isHovered} />
@@ -553,7 +629,7 @@ export default function App() {
                                                         hidden: { opacity: 0, y: 6 },
                                                         show: { opacity: 1, y: 0 }
                                                     }}
-                                                    transition={{ duration: 1.2, ease: sexyEase }}
+                                                    transition={{ duration: 1.0, ease: sexyEase }}
                                                     className="group"
                                                 >
                                                     <SectionHeader text="Metadata" isSectionHovered={isHovered} />
@@ -572,12 +648,15 @@ export default function App() {
                                             )}
                                         </SectionWrapper>
                                     )}
+                                            </>
+                                        );
+                                    })()}
                                 </motion.div>
                             ) : null}
                         </AnimatePresence>
                     </main>
                     
-                    <footer className="flex-shrink-0 border-t border-faint">
+                    <footer className="flex-shrink-0">
                         <TracerLogo theme={theme} />
                     </footer>
                 </div>

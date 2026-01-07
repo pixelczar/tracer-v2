@@ -18,24 +18,31 @@ interface Props {
 }
 
 export function TypographySection({ fonts }: Props) {
-    // Use a consistent pangram for the entire session
-    const [sessionPangram] = useState(() => PANGRAMS[0]);
+    // Use a random pangram for the entire session
+    const [sessionPangram] = useState(() => PANGRAMS[Math.floor(Math.random() * PANGRAMS.length)]);
+
+    // Filter out icon fonts (safety check - should already be filtered in App.tsx)
+    const regularFonts = fonts.filter(f => !f.isIconFont);
+    
+    // Create a key based on font families to trigger stagger re-animation when fonts change
+    const fontsKey = regularFonts.map(f => f.family).join(',');
 
     return (
         <motion.div
+            key={fontsKey}
             initial="hidden"
             animate="show"
             variants={{
                 show: {
                     transition: {
                         staggerChildren: 0.12,
-                        delayChildren: 0.15
+                        delayChildren: 0.05
                     }
                 }
             }}
             className="flex flex-col gap-5"
         >
-            {fonts.map((font) => (
+            {regularFonts.map((font) => (
                 <FontItem
                     key={font.family}
                     font={font}
@@ -82,7 +89,7 @@ function FontItem({ font, sessionPangram }: { font: FontInfo; sessionPangram: st
                 hidden: { opacity: 0, y: 6 },
                 show: { opacity: 1, y: 0 }
             }}
-            transition={{ duration: 0.7, ease: sexyEase }}
+            transition={{ duration: 1.0, ease: sexyEase }}
             className="flex flex-col gap-3 group"
         >
             {/* Header */}
