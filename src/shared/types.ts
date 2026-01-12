@@ -34,12 +34,14 @@ export interface FontInfo {
     source: 'google' | 'adobe' | 'custom' | 'system';
     url?: string;
     preview: FontPreview;
+    isMono?: boolean;
+    isSerif?: boolean;
     isIconFont?: boolean;
     iconSamples?: string[]; // Icon characters extracted from the page
 }
 
 export interface FontPreview {
-    method: 'google' | 'adobe' | 'datauri' | 'canvas';
+    method: 'google' | 'adobe' | 'datauri' | 'canvas' | 'css';
     data: string;
     previews?: string[]; // Multiple data URIs for cycling
     weightPreviews?: Record<string, string[]>; // weight -> cycling previews

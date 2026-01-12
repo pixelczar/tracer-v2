@@ -90,7 +90,7 @@ function FontItem({ font, sessionPangram }: { font: FontInfo; sessionPangram: st
                 show: { opacity: 1, y: 0 }
             }}
             transition={{ duration: 1.0, ease: sexyEase }}
-            className="flex flex-col gap-3 group"
+            className="flex flex-col gap-1 group"
         >
             {/* Header */}
             <div className="flex items-baseline justify-between px-0.5">
@@ -132,7 +132,7 @@ function FontItem({ font, sessionPangram }: { font: FontInfo; sessionPangram: st
             </div>
 
             {/* Specimen - Smoother easing, fade out down, fade in up */}
-            <div className="pt-2 pb-4 border-b border-faint overflow-hidden min-h-[90px] relative">
+            <div className="py-2 border-b border-faint overflow-hidden min-h-[90px] relative">
                 <AnimatePresence mode="wait" initial={false}>
                     <motion.div
                         key={activeWeight}
@@ -162,9 +162,24 @@ function FontItem({ font, sessionPangram }: { font: FontInfo; sessionPangram: st
                                 <p
                                     className="text-2xl tracking-tight max-w-[300px]"
                                     style={{
-                                        fontFamily: font.preview.method === 'datauri'
-                                            ? `'${font.family}-preview', sans-serif`
-                                            : `'${font.family}', sans-serif`,
+                                        fontFamily: (() => {
+                                            let fallback: string;
+                                            if (font.isMono) {
+                                                fallback = 'monospace';
+                                            } else if (font.isSerif) {
+                                                fallback = 'serif';
+                                            } else {
+                                                fallback = 'sans-serif';
+                                            }
+                                            
+                                            if (font.preview.method === 'datauri') {
+                                                return `'${font.family}-preview', ${fallback}`;
+                                            } else if (font.preview.method === 'css') {
+                                                return `'${font.preview.data}', ${fallback}`;
+                                            } else {
+                                                return `'${font.family}', ${fallback}`;
+                                            }
+                                        })(),
                                         fontWeight: activeWeight,
                                         display: '-webkit-box',
                                         WebkitLineClamp: 2,

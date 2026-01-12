@@ -11,44 +11,261 @@ interface FontDetails {
     source: 'google' | 'adobe' | 'custom' | 'system';
     url?: string;
     isMono: boolean;
+    isSerif: boolean;
     isIconFont: boolean;
     iconSamples?: string[];
 }
 
 export async function extractFonts(): Promise<FontInfo[]> {
     const fontMap = new Map<string, FontDetails>();
+    const fontNameMap = new Map<string, string>(); // Maps CSS names to actual font names
 
-    // 1. Scan computed styles
-    scanComputedFonts(fontMap);
+    // 1. Scan computed styles (collect CSS names first)
+    scanComputedFonts(fontMap, fontNameMap);
 
-    // 2. Check for Google Fonts
+    // 2. Check document.fonts API for all loaded fonts (catches fonts not in first 300 elements)
+    detectLoadedFonts(fontMap, fontNameMap);
+    
+    // 3. Build a map of CSS font names to actual font names from document.fonts and @font-face
+    // Do this after collecting all CSS names
+    await buildFontNameMap(fontNameMap);
+
+    // 3. Check for Google Fonts
     detectGoogleFonts(fontMap);
 
-    // 3. Check for Adobe Fonts
+    // 4. Check for Adobe Fonts
     detectAdobeFonts(fontMap);
 
-    // 4. Detect icon fonts
+    // 5. Detect icon fonts
     detectIconFonts(fontMap);
 
-    // 5. Extract icon samples for icon fonts
+    // 6. Extract icon samples for icon fonts
     extractIconSamples(fontMap);
 
-    // 6. Generate previews
+    // 7. Normalize weights for variable fonts
+    normalizeVariableFontWeights(fontMap);
+
+    // 8. Generate previews
     const settings = await getSettingsAsync();
     const previewText = getFontPreviewText(settings.fontPreviewSource);
     const fonts = await Promise.all(
-        Array.from(fontMap.values()).map(async (details) => ({
-            ...details,
-            preview: await generatePreview(details, previewText),
-            isIconFont: details.isIconFont,
-            iconSamples: details.iconSamples,
-        }))
+        Array.from(fontMap.values()).map(async (details) => {
+            // Use actual font name if available, otherwise use the CSS name
+            const actualName = fontNameMap.get(details.family) || details.family;
+            return {
+                ...details,
+                family: actualName,
+                preview: await generatePreview(details, previewText),
+                isMono: details.isMono,
+                isSerif: details.isSerif,
+                isIconFont: details.isIconFont,
+                iconSamples: details.iconSamples,
+            };
+        })
     );
 
     return fonts.filter(f => !isSystemFont(f.family));
 }
 
-function scanComputedFonts(fontMap: Map<string, FontDetails>) {
+async function buildFontNameMap(fontNameMap: Map<string, string>) {
+    // Collect all CSS names that need mapping (from fontNameMap keys)
+    const cssNames = Array.from(fontNameMap.keys());
+    if (cssNames.length === 0) return;
+    
+    // Map CSS names to actual font names by parsing @font-face rules
+    // Look for local() fallbacks and font file URLs that might contain the actual font name
+    const cssToActualName = new Map<string, string>();
+    
+    try {
+        for (const sheet of document.styleSheets) {
+            try {
+                for (const rule of sheet.cssRules) {
+                    if (rule instanceof CSSFontFaceRule) {
+                        const cssFontFamily = rule.style.fontFamily.split(',')[0].replace(/["']/g, '').trim();
+                        if (!cssFontFamily || cssNames.indexOf(cssFontFamily) === -1) continue;
+                        
+                        // Check for local() fallbacks in src - these often contain the actual font name
+                        const src = rule.style.getPropertyValue('src');
+                        if (src) {
+                            // Look for local("Font Name") patterns
+                            const localMatches = src.match(/local\(["']([^"']+)["']\)/gi);
+                            if (localMatches && localMatches.length > 0) {
+                                // Use the first local() name that looks like a real font name
+                                for (const localMatch of localMatches) {
+                                    const fontName = localMatch.replace(/local\(["']|["']\)/gi, '').trim();
+                                    // Prefer names that don't look like CSS variables
+                                    if (fontName && !fontName.startsWith('__') && !/_[a-f0-9]{6,}$/i.test(fontName)) {
+                                        cssToActualName.set(cssFontFamily, fontName);
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            // Also try to extract font name from font file URLs
+                            // Many fonts have the actual name in the filename
+                            // But be very strict - only use if it looks like a real font name
+                            if (!cssToActualName.has(cssFontFamily)) {
+                                const urlMatches = src.match(/url\(["']?([^"')]+)["']?\)/gi);
+                                if (urlMatches) {
+                                    for (const urlMatch of urlMatches) {
+                                        const url = urlMatch.replace(/url\(["']?|["']?\)/gi, '').trim();
+                                        // Extract filename and try to get font name from it
+                                        const filename = url.split('/').pop() || '';
+                                        // Remove common extensions and hash suffixes
+                                        let nameFromUrl = filename
+                                            .replace(/\.(woff2?|ttf|otf|eot)$/i, '')
+                                            .replace(/[-_][a-f0-9]{6,}$/i, '')
+                                            .replace(/[-_]Regular$|[-_]Bold$|[-_]Italic$/i, '');
+                                        
+                                        // Be very strict about what we accept
+                                        // Reject if:
+                                        // - Entirely hex/hash-like
+                                        // - Mostly hex characters (>70%)
+                                        // - Contains suspicious patterns like "S.p", ".p", etc.
+                                        // - Too short or too long
+                                        // - Doesn't contain at least one letter
+                                        const hexChars = (nameFromUrl.match(/[a-f0-9]/gi) || []).length;
+                                        const totalChars = nameFromUrl.length;
+                                        const hexRatio = totalChars > 0 ? hexChars / totalChars : 0;
+                                        
+                                        const hasLetters = /[a-z]/i.test(nameFromUrl);
+                                        const hasSuspiciousPattern = /\.(p|s|js|css)$/i.test(nameFromUrl) || 
+                                                                    /\sS\.p$/i.test(nameFromUrl) ||
+                                                                    /^[a-f0-9]{8,}/i.test(nameFromUrl);
+                                        
+                                        if (nameFromUrl && 
+                                            nameFromUrl.length >= 3 && 
+                                            nameFromUrl.length <= 50 &&
+                                            !nameFromUrl.startsWith('__') && 
+                                            !/^[a-f0-9]{6,}$/i.test(nameFromUrl) &&
+                                            hexRatio < 0.7 &&
+                                            hasLetters &&
+                                            !hasSuspiciousPattern) {
+                                            // Clean up the name
+                                            const cleaned = nameFromUrl
+                                                .replace(/[-_]/g, ' ')
+                                                .split(' ')
+                                                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                                                .join(' ');
+                                            cssToActualName.set(cssFontFamily, cleaned);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                // CORS blocked - skip this stylesheet
+                continue;
+            }
+        }
+    } catch (e) {
+        // Error accessing stylesheets
+    }
+    
+    // Try to get actual font names by checking what fonts are actually rendered
+    // Create test elements and check what font the browser reports
+    if (document.fonts && document.fonts.size > 0) {
+        for (const cssName of cssNames) {
+            if (cssToActualName.has(cssName)) continue; // Already mapped
+            
+            // Create a test element to see what font is actually rendered
+            const testEl = document.createElement('span');
+            testEl.style.fontFamily = `"${cssName}"`;
+            testEl.style.position = 'absolute';
+            testEl.style.visibility = 'hidden';
+            testEl.style.fontSize = '16px';
+            testEl.textContent = 'A';
+            document.body.appendChild(testEl);
+            
+            // Wait a bit for font to load
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Check document.fonts to see which font face is actually being used
+            // Note: fontFace.family usually just returns the CSS name, not the actual font name
+            // So we'll only use it if it's clearly a clean, real font name
+            for (const fontFace of document.fonts) {
+                const fontSpec = `400 normal 16px "${cssName}"`;
+                if (document.fonts.check(fontSpec)) {
+                    const fontFaceFamily = fontFace.family;
+                    // Only use if it's clearly different and looks like a real font name
+                    if (fontFaceFamily !== cssName && 
+                        fontFaceFamily.length >= 2 &&
+                        fontFaceFamily.length <= 50 &&
+                        !fontFaceFamily.startsWith('__') && 
+                        !/_[a-f0-9]{6,}$/i.test(fontFaceFamily) &&
+                        !/^[a-f0-9]{8,}/i.test(fontFaceFamily) &&
+                        /[a-z]/i.test(fontFaceFamily) &&
+                        !/\.(p|s|js|css)$/i.test(fontFaceFamily)) {
+                        // Only use if we don't already have a better mapping
+                        if (!cssToActualName.has(cssName)) {
+                            cssToActualName.set(cssName, fontFaceFamily);
+                        }
+                        break;
+                    }
+                }
+            }
+            
+            document.body.removeChild(testEl);
+        }
+    }
+    
+    // Apply mappings
+    for (const cssName of cssNames) {
+        // Skip if already mapped to a different name
+        const currentMapping = fontNameMap.get(cssName);
+        if (currentMapping && currentMapping !== cssName) {
+            continue; // Already mapped to a different name
+        }
+        
+        // Check if this looks like a CSS variable name that needs cleaning
+        const needsCleaning = cssName.startsWith('__') || /_[a-f0-9]{6,}$/i.test(cssName);
+        
+        if (!needsCleaning) {
+            continue; // Already a clean name
+        }
+        
+        // Priority 1: Use mapped actual name from local() or clean document.fonts match
+        if (cssToActualName.has(cssName)) {
+            const mappedName = cssToActualName.get(cssName)!;
+            // Validate the mapped name is reasonable
+            if (mappedName.length >= 2 && 
+                mappedName.length <= 50 &&
+                !/^[a-f0-9]{6,}$/i.test(mappedName) &&
+                /[a-z]/i.test(mappedName)) {
+                fontNameMap.set(cssName, mappedName);
+                continue;
+            }
+        }
+        
+        // Priority 2: Use cleaned version of CSS name (most reliable fallback)
+        const cleaned = cleanFontName(cssName);
+        if (cleaned !== cssName && cleaned.length > 0 && cleaned.length <= 50) {
+            fontNameMap.set(cssName, cleaned);
+        }
+    }
+}
+
+function cleanFontName(name: string): string {
+    // Remove leading underscores and hash suffixes like "_b7b820"
+    let cleaned = name.replace(/^_+/, ''); // Remove leading underscores
+    cleaned = cleaned.replace(/_[a-f0-9]{6,}$/i, ''); // Remove hash suffix like "_b7b820"
+    
+    // Convert camelCase to Title Case
+    // "foundersGrotesk" -> "Founders Grotesk"
+    cleaned = cleaned.replace(/([a-z])([A-Z])/g, '$1 $2');
+    
+    // Capitalize first letter of each word
+    cleaned = cleaned.split(' ').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ');
+    
+    return cleaned;
+}
+
+function scanComputedFonts(fontMap: Map<string, FontDetails>, fontNameMap: Map<string, string>) {
     const elements = document.querySelectorAll('body *');
     const sampled = Array.from(elements).slice(0, 300);
 
@@ -62,6 +279,37 @@ function scanComputedFonts(fontMap: Map<string, FontDetails>) {
 
         if (!family) return;
 
+        // Add CSS name to fontNameMap for later mapping
+        if (!fontNameMap.has(family)) {
+            fontNameMap.set(family, family); // Initialize with same name, will be updated later
+        }
+
+        // Detect monospace fonts: check for "monospace" in font-family stack or "mono" in font name
+        const isMono = rawFamily.toLowerCase().includes('monospace') || 
+                      family.toLowerCase().includes('mono');
+        
+        // Detect serif fonts: ONLY check the actual font name (not fallbacks in the stack)
+        // Also check for common serif font name patterns
+        const lowerFamily = family.toLowerCase();
+        // Only check the primary font name, not the fallback stack (which often contains "serif" or "sans-serif")
+        const isSerif = lowerFamily.includes('serif') ||
+                       // Check for common serif font name patterns (but exclude "sans" which indicates sans-serif)
+                       (!lowerFamily.includes('sans') && (
+                           lowerFamily.includes('times') ||
+                           lowerFamily.includes('georgia') ||
+                           lowerFamily.includes('garamond') ||
+                           lowerFamily.includes('baskerville') ||
+                           lowerFamily.includes('caslon') ||
+                           lowerFamily.includes('minion') ||
+                           lowerFamily.includes('palatino') ||
+                           lowerFamily.includes('bookman') ||
+                           lowerFamily.includes('kalice') || // Known serif font
+                           lowerFamily.includes('merriweather') ||
+                           lowerFamily.includes('lora') ||
+                           lowerFamily.includes('crimson') ||
+                           lowerFamily.includes('libre baskerville')
+                       ));
+        
         const existing = fontMap.get(family) || {
             family,
             weights: [],
@@ -70,7 +318,8 @@ function scanComputedFonts(fontMap: Map<string, FontDetails>) {
             lineHeight: [],
             sizes: [],
             source: 'custom' as const,
-            isMono: rawFamily.toLowerCase().includes('monospace'),
+            isMono,
+            isSerif,
             isIconFont: false,
         };
 
@@ -90,6 +339,101 @@ function scanComputedFonts(fontMap: Map<string, FontDetails>) {
 
         fontMap.set(family, existing);
     });
+}
+
+function detectLoadedFonts(fontMap: Map<string, FontDetails>, fontNameMap: Map<string, string>) {
+    // Use a broader sample to catch fonts that might not be in the first 300 elements
+    // Only add fonts that are actually being used (in computed styles), not just defined
+    
+    try {
+        // Check computed styles from a broader sample to catch fonts in use
+        const elements = document.querySelectorAll('body *');
+        const broaderSample = Array.from(elements).slice(300, 800); // Sample elements 300-800 (500 more elements)
+
+        broaderSample.forEach(el => {
+            if (isTracerElement(el)) return;
+
+            const computed = getComputedStyle(el);
+            const rawFamily = computed.fontFamily;
+            if (!rawFamily) return;
+
+            // Extract the primary font family (first in stack)
+            const primaryFamily = rawFamily.split(',')[0].replace(/["']/g, '').trim();
+            if (!primaryFamily || isSystemFont(primaryFamily)) return;
+            
+            // Collect CSS name for later mapping
+            if (!fontNameMap.has(primaryFamily)) {
+                fontNameMap.set(primaryFamily, primaryFamily); // Initialize with same name, will be updated later
+            }
+
+            // Only add if not already in map (to catch fonts missed in first 300)
+            if (!fontMap.has(primaryFamily)) {
+                const weight = computed.fontWeight;
+                const style = computed.fontStyle as 'normal' | 'italic';
+                const letterSpacing = computed.letterSpacing;
+                const lineHeight = computed.lineHeight;
+                const size = computed.fontSize;
+
+                // Detect monospace fonts: check for "monospace" in font-family stack or "mono" in font name
+                const isMono = rawFamily.toLowerCase().includes('monospace') || 
+                              primaryFamily.toLowerCase().includes('mono');
+                
+                // Detect serif fonts: ONLY check the actual font name (not fallbacks in the stack)
+                // Also check for common serif font name patterns
+                const lowerFamily = primaryFamily.toLowerCase();
+                // Only check the primary font name, not the fallback stack (which often contains "serif" or "sans-serif")
+                const isSerif = lowerFamily.includes('serif') ||
+                               // Check for common serif font name patterns (but exclude "sans" which indicates sans-serif)
+                               (!lowerFamily.includes('sans') && (
+                                   lowerFamily.includes('times') ||
+                                   lowerFamily.includes('georgia') ||
+                                   lowerFamily.includes('garamond') ||
+                                   lowerFamily.includes('baskerville') ||
+                                   lowerFamily.includes('caslon') ||
+                                   lowerFamily.includes('minion') ||
+                                   lowerFamily.includes('palatino') ||
+                                   lowerFamily.includes('bookman') ||
+                                   lowerFamily.includes('kalice') || // Known serif font
+                                   lowerFamily.includes('merriweather') ||
+                                   lowerFamily.includes('lora') ||
+                                   lowerFamily.includes('crimson') ||
+                                   lowerFamily.includes('libre baskerville')
+                               ));
+                
+                fontMap.set(primaryFamily, {
+                    family: primaryFamily,
+                    weights: [weight],
+                    styles: [style],
+                    letterSpacing: letterSpacing !== 'normal' ? [letterSpacing] : [],
+                    lineHeight: [lineHeight],
+                    sizes: [size],
+                    source: 'custom' as const,
+                    isMono,
+                    isSerif,
+                    isIconFont: false,
+                });
+            } else {
+                // Update existing font with properties from this element
+                const existing = fontMap.get(primaryFamily)!;
+                const weight = computed.fontWeight;
+                const style = computed.fontStyle as 'normal' | 'italic';
+                const letterSpacing = computed.letterSpacing;
+                const lineHeight = computed.lineHeight;
+                const size = computed.fontSize;
+
+                if (!existing.weights.includes(weight)) existing.weights.push(weight);
+                if (!existing.styles.includes(style)) existing.styles.push(style);
+                if (letterSpacing !== 'normal' && !existing.letterSpacing.includes(letterSpacing)) {
+                    existing.letterSpacing.push(letterSpacing);
+                }
+                if (!existing.lineHeight.includes(lineHeight)) existing.lineHeight.push(lineHeight);
+                if (!existing.sizes.includes(size)) existing.sizes.push(size);
+            }
+        });
+    } catch (e) {
+        // Fallback if there's an error
+        console.warn('[Tracer] Error detecting loaded fonts:', e);
+    }
 }
 
 function detectGoogleFonts(fontMap: Map<string, FontDetails>) {
@@ -420,15 +764,40 @@ async function generatePreview(font: FontDetails, previewText?: string): Promise
                 previewText: textToUse,
             };
         } catch {
-            // CORS blocked
+            // CORS blocked - font file exists but can't be fetched
+            // Check if font is already loaded on the page - if so, use CSS method
+            if (document.fonts && document.fonts.check) {
+                const fontSpec = `${font.weights[0] || '400'} 16px "${font.family}"`;
+                if (document.fonts.check(fontSpec)) {
+                    // Font is loaded on the page - use CSS method so browser can render it
+                    return {
+                        method: 'css',
+                        data: font.family,
+                        previewText: textToUse,
+                    };
+                }
+            }
+        }
+    } else {
+        // No font URL found, but check if font is loaded on the page
+        if (document.fonts && document.fonts.check) {
+            const fontSpec = `${font.weights[0] || '400'} 16px "${font.family}"`;
+            if (document.fonts.check(fontSpec)) {
+                // Font is loaded on the page - use CSS method so browser can render it
+                return {
+                    method: 'css',
+                    data: font.family,
+                    previewText: textToUse,
+                };
+            }
         }
     }
 
-    // Fallback: render via canvas
+    // Fallback: render via canvas (only if font can't be accessed via CSS)
     const weightPreviews: Record<string, string[]> = {};
     for (const weight of font.weights) {
         weightPreviews[weight] = await Promise.all(
-            [textToUse].map(p => renderFontToCanvas(font.family, p, font.isMono, weight))
+            [textToUse].map(p => renderFontToCanvas(font.family, p, font.isMono, font.isSerif, weight))
         );
     }
 
@@ -460,11 +829,30 @@ function findFontUrl(family: string): string | null {
     return null;
 }
 
-async function renderFontToCanvas(family: string, text: string, isMono: boolean, weight: string = '400'): Promise<string> {
-    // Attempt to ensure font is loaded
+async function renderFontToCanvas(family: string, text: string, isMono: boolean, isSerif: boolean, weight: string = '400'): Promise<string> {
+    // Attempt to ensure font is loaded - try multiple approaches
     try {
-        await document.fonts.load(`${weight} 16px "${family}"`);
-    } catch (e) { }
+        // Try loading with the exact font family name (quoted)
+        const fontSpecQuoted = `${weight} 16px "${family}"`;
+        await document.fonts.load(fontSpecQuoted);
+        
+        // Also try without quotes (some fonts need this)
+        const fontSpecUnquoted = `${weight} 16px ${family}`;
+        await document.fonts.load(fontSpecUnquoted);
+        
+        // Wait for font to be ready - check multiple times
+        let attempts = 0;
+        const maxAttempts = 10;
+        while (attempts < maxAttempts) {
+            if (document.fonts.check(fontSpecQuoted) || document.fonts.check(fontSpecUnquoted)) {
+                break;
+            }
+            await new Promise(resolve => setTimeout(resolve, 50));
+            attempts++;
+        }
+    } catch (e) {
+        // Font loading failed, continue anyway
+    }
 
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d')!;
@@ -477,10 +865,40 @@ async function renderFontToCanvas(family: string, text: string, isMono: boolean,
 
     // Non-system keywords must be quoted
     const familyQuery = isSystemKey ? family : `"${family}"`;
-    const fallback = isMono ? 'monospace' : 'sans-serif';
+    // Use appropriate fallback - but the actual font should load, not the fallback
+    let fallback: string;
+    if (isMono) {
+        fallback = 'monospace';
+    } else if (isSerif) {
+        fallback = 'serif';
+    } else {
+        fallback = 'sans-serif';
+    }
     const fontString = `${weight} ${size}px ${familyQuery}, ${fallback}`;
 
     ctx.font = fontString;
+    
+    // Verify the actual font is being used, not just the fallback
+    // Check if the font is actually loaded by testing character rendering
+    if (!isSystemKey && document.fonts && document.fonts.check) {
+        const fontSpec = `${weight} ${size}px "${family}"`;
+        const isFontLoaded = document.fonts.check(fontSpec);
+        
+        if (!isFontLoaded) {
+            // Font isn't loaded - this means we'll be using the fallback
+            // For monospace fonts, we want to ensure we're using the actual font
+            // Try one more time to load it
+            try {
+                await document.fonts.load(fontSpec);
+                // Re-check after loading
+                if (document.fonts.check(fontSpec)) {
+                    ctx.font = fontString; // Re-apply font after loading
+                }
+            } catch (e) {
+                // Font loading failed - will use fallback
+            }
+        }
+    }
 
     const words = text.split(' ');
     const lines: string[] = [];
@@ -538,6 +956,83 @@ async function renderFontToCanvas(family: string, text: string, isMono: boolean,
 const SYSTEM_FONTS = [
     'sans-serif', 'serif', 'monospace',
 ];
+
+function normalizeVariableFontWeights(fontMap: Map<string, FontDetails>) {
+    // Standard font weights: 100, 200, 300, 400, 500, 600, 700, 800, 900
+    const STANDARD_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
+    
+    fontMap.forEach((font, family) => {
+        if (font.weights.length === 0) return;
+        
+        // Convert all weights to numbers
+        const numericWeights = font.weights
+            .map(w => {
+                const num = typeof w === 'string' ? parseFloat(w) : w;
+                return isNaN(num) ? null : num;
+            })
+            .filter((w): w is number => w !== null);
+        
+        if (numericWeights.length === 0) return;
+        
+        // Check if this is likely a variable font
+        // Variable fonts have many non-standard weights (not multiples of 100)
+        const hasNonStandardWeights = numericWeights.some(w => {
+            const rounded = Math.round(w);
+            return rounded < 100 || rounded > 900 || !STANDARD_WEIGHTS.includes(rounded);
+        });
+        
+        // If we have many weights (>6) with non-standard values, it's likely a variable font
+        const isLikelyVariable = hasNonStandardWeights && font.weights.length > 6;
+        
+        if (isLikelyVariable) {
+            // Group similar weights together (within 25 units)
+            const normalizedWeights = new Set<number>();
+            
+            numericWeights.forEach(weight => {
+                // Find if there's a similar weight already (within 25)
+                let foundSimilar = false;
+                for (const existing of normalizedWeights) {
+                    if (Math.abs(weight - existing) < 25) {
+                        foundSimilar = true;
+                        // Use the weight closer to a standard weight
+                        const existingDist = Math.min(...STANDARD_WEIGHTS.map(sw => Math.abs(existing - sw)));
+                        const weightDist = Math.min(...STANDARD_WEIGHTS.map(sw => Math.abs(weight - sw)));
+                        if (weightDist < existingDist) {
+                            normalizedWeights.delete(existing);
+                            normalizedWeights.add(weight);
+                        }
+                        break;
+                    }
+                }
+                if (!foundSimilar) {
+                    normalizedWeights.add(weight);
+                }
+            });
+            
+            // If still too many, round to nearest 50
+            if (normalizedWeights.size > 10) {
+                const roundedWeights = new Set<number>();
+                numericWeights.forEach(weight => {
+                    const rounded = Math.round(weight / 50) * 50;
+                    const clamped = Math.max(100, Math.min(900, rounded));
+                    roundedWeights.add(clamped);
+                });
+                font.weights = Array.from(roundedWeights)
+                    .sort((a, b) => a - b)
+                    .map(w => String(w));
+            } else {
+                font.weights = Array.from(normalizedWeights)
+                    .sort((a, b) => a - b)
+                    .map(w => String(w));
+            }
+        } else {
+            // For non-variable fonts, just ensure weights are sorted
+            font.weights = numericWeights
+                .sort((a, b) => a - b)
+                .map(w => String(w));
+        }
+    });
+}
 
 function isSystemFont(family: string): boolean {
     return SYSTEM_FONTS.includes(family.toLowerCase());

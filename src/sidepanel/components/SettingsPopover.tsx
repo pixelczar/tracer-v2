@@ -256,8 +256,11 @@ export function SettingsPopover({ theme, onThemeChange, onRescan, onOpenChange }
                                     <div className="flex items-center gap-1.5 flex-shrink-0">
                                         <button
                                             onClick={() => {
-                                                updateSetting('theme', 'light');
-                                                onThemeChange('light');
+                                                if (theme !== 'light') {
+                                                    updateSetting('theme', 'light');
+                                                    onThemeChange('light');
+                                                    handleClose();
+                                                }
                                             }}
                                             className={`
                                                 px-2 py-1 rounded-md text-xs font-medium transition-all
@@ -272,8 +275,11 @@ export function SettingsPopover({ theme, onThemeChange, onRescan, onOpenChange }
                                         </button>
                                         <button
                                             onClick={() => {
-                                                updateSetting('theme', 'dark');
-                                                onThemeChange('dark');
+                                                if (theme !== 'dark') {
+                                                    updateSetting('theme', 'dark');
+                                                    onThemeChange('dark');
+                                                    handleClose();
+                                                }
                                             }}
                                             className={`
                                                 px-2 py-1 rounded-md text-xs font-medium transition-all

@@ -36,7 +36,7 @@ export const TECH_PATTERNS: TechPattern[] = [
     { name: 'React', category: 'js-framework', url: 'https://react.dev', isSignal: false, patterns: { globals: ['React', '__REACT_DEVTOOLS_GLOBAL_HOOK__', '_reactListening', '__react_router_build_config'], dom: ['[data-reactroot]', '[data-react-helmet]', '#react-root', '#root'] }, versionGlobal: 'React.version' },
     { name: 'Vue.js', category: 'js-framework', url: 'https://vuejs.org', isSignal: false, patterns: { globals: ['Vue', '__VUE__', '__VUE_DEVTOOLS_GLOBAL_HOOK__'], dom: ['[data-v-]'] }, versionGlobal: 'Vue.version' },
     { name: 'Svelte', category: 'js-framework', url: 'https://svelte.dev', isSignal: true, patterns: { globals: ['__svelte'], dom: ['[class*="svelte-"]'] } },
-    { name: 'Angular', category: 'js-framework', url: 'https://angular.io', isSignal: false, patterns: { globals: ['ng'], dom: ['[ng-version]', '[_ngcontent-]'] } },
+    { name: 'Angular', category: 'js-framework', url: 'https://angular.io', isSignal: false, patterns: { dom: ['[ng-version]', '[_ngcontent-]'] }, confidence: 100 },
     { name: 'AngularJS', category: 'js-framework', url: 'https://angularjs.org', isSignal: false, patterns: { globals: ['angular'], scripts: [/angular\.js/, /angularjs/], dom: ['[ng-app]', '[ng-controller]', '[ng-model]'] }, excludes: ['Angular'] },
     { name: 'Solid', category: 'js-framework', url: 'https://solidjs.com', isSignal: true, patterns: { globals: ['_$HY', 'Solid'] } },
     { name: 'Preact', category: 'js-framework', url: 'https://preactjs.com', isSignal: false, patterns: { globals: ['preact', '__PREACT_DEVTOOLS__'] } },
@@ -45,7 +45,7 @@ export const TECH_PATTERNS: TechPattern[] = [
     { name: 'HTMX', category: 'js-framework', url: 'https://htmx.org', isSignal: true, patterns: { globals: ['htmx'], dom: ['[hx-get]', '[hx-post]', '[hx-trigger]'] } },
     { name: 'Qwik', category: 'js-framework', url: 'https://qwik.builder.io', isSignal: true, patterns: { globals: ['qwik'], dom: ['[q\\:container]'] } },
     { name: 'Stimulus', category: 'js-framework', url: 'https://stimulus.hotwired.dev', isSignal: true, patterns: { globals: ['Stimulus'], dom: ['[data-controller]'] } },
-    { name: 'Ember', category: 'js-framework', url: 'https://emberjs.com', isSignal: false, patterns: { globals: ['Ember', 'Em'] } },
+    { name: 'Ember', category: 'js-framework', url: 'https://emberjs.com', isSignal: false, patterns: { globals: ['Ember'] }, confidence: 85 },
 
     // Meta Frameworks
     { name: 'Next.js', category: 'web-framework', url: 'https://nextjs.org', isSignal: false, patterns: { globals: ['__NEXT_DATA__', '__NEXT_P'], dom: ['#__next'], scripts: [/_next\//] } },
@@ -148,8 +148,8 @@ export const TECH_PATTERNS: TechPattern[] = [
     { name: 'Plotly', category: 'dataviz', url: 'https://plotly.com', isSignal: false, patterns: { globals: ['Plotly'] } },
 
     // ==================== CONTENT & CMS ====================
-    { name: 'WordPress', category: 'cms', url: 'https://wordpress.org', isSignal: false, patterns: { meta: [{ name: 'generator', content: /WordPress/i }], scripts: [/\/wp-content\//, /\/wp-includes\//], cookies: [{ name: 'wordpress_logged_in' }, { name: /^wp-/i }] }, excludes: ['Drupal'] },
-    { name: 'Contentful', category: 'cms', url: 'https://contentful.com', isSignal: false, patterns: { scripts: [/contentful/] } },
+    { name: 'WordPress', category: 'cms', url: 'https://wordpress.org', isSignal: false, patterns: { meta: [{ name: 'generator', content: /WordPress/i }], cookies: [{ name: 'wordpress_logged_in' }, { name: /^wp-/i }] }, excludes: ['Drupal'], confidence: 100 },
+    { name: 'Contentful', category: 'cms', url: 'https://contentful.com', isSignal: false, patterns: { scripts: [/contentful\.com/, /contentfulcdn\.com/, /spaces\.contentful/], globals: ['contentful'] }, confidence: 85 },
     { name: 'Sanity', category: 'cms', url: 'https://sanity.io', isSignal: true, patterns: { globals: ['sanity', '__sanity'], scripts: [/sanity\.io/, /sanitycdn\.com/, /sanity-studio/] } },
     { name: 'Strapi', category: 'cms', url: 'https://strapi.io', isSignal: true, patterns: { globals: ['strapi'], meta: [{ name: 'generator', content: /Strapi/i }] } },
     { name: 'Storyblok', category: 'cms', url: 'https://storyblok.com', isSignal: true, patterns: { scripts: [/storyblok/, /storyblokcdn\.com/], globals: ['storyblok'], dom: ['[data-storyblok]'] } },
@@ -158,7 +158,7 @@ export const TECH_PATTERNS: TechPattern[] = [
     { name: 'Drupal', category: 'cms', url: 'https://drupal.org', isSignal: false, patterns: { meta: [{ name: 'generator', content: /Drupal/i }], scripts: [/\/sites\/.*\/files\//, /\/misc\/drupal\.js/, /\/core\/misc\/drupal/], cookies: [{ name: /^SESS[0-9a-f]{32}$/i }, { name: /^SSESS[0-9a-f]{32}$/i }], dom: ['[data-drupal-]', '[class*="drupal"]'] }, excludes: ['WordPress'], confidence: 85 },
     { name: 'Joomla', category: 'cms', url: 'https://joomla.org', isSignal: false, patterns: { meta: [{ name: 'generator', content: /Joomla/i }], scripts: [/\/media\/joomla/, /\/components\//], cookies: [{ name: /^joomla/i }], dom: ['[class*="joomla"]'] } },
     { name: 'Craft CMS', category: 'cms', url: 'https://craftcms.com', isSignal: true, patterns: { meta: [{ name: 'generator', content: /Craft CMS/i }], scripts: [/craftcms/, /\/cpresources\//], cookies: [{ name: 'CraftSessionId' }] } },
-    { name: 'Payload', category: 'cms', url: 'https://payloadcms.com', isSignal: true, patterns: { scripts: [/payloadcms/, /\/api\//], globals: ['payload'] } },
+    { name: 'Payload', category: 'cms', url: 'https://payloadcms.com', isSignal: true, patterns: { scripts: [/payloadcms/, /\/api\/payload/, /payload.*cms/], globals: ['payload'] }, confidence: 85 },
     { name: 'Directus', category: 'cms', url: 'https://directus.io', isSignal: true, patterns: { scripts: [/directus/, /\/directus\//], globals: ['directus'] } },
     { name: 'Keystone', category: 'cms', url: 'https://keystonejs.com', isSignal: true, patterns: { scripts: [/keystone/, /keystonejs/], globals: ['keystone'] } },
     { name: 'Format', category: 'cms', url: 'https://format.com', isSignal: false, patterns: { scripts: [/format\.com/, /formatcdn\.com/], url: [/\.format\.com$/], meta: [{ name: 'generator', content: /Format/i }] } },
@@ -298,7 +298,7 @@ export const TECH_PATTERNS: TechPattern[] = [
     // ==================== RICH CONTENT ====================
     { name: 'Google Maps', category: 'maps', url: 'https://developers.google.com/maps', isSignal: false, patterns: { scripts: [/maps\.googleapis\.com/] } },
     { name: 'Mapbox', category: 'maps', url: 'https://mapbox.com', isSignal: true, patterns: { globals: ['mapboxgl'], scripts: [/mapbox/] } },
-    { name: 'Leaflet', category: 'maps', url: 'https://leafletjs.com', isSignal: false, patterns: { globals: ['L'], dom: ['.leaflet-container'] } },
+    { name: 'Leaflet', category: 'maps', url: 'https://leafletjs.com', isSignal: false, patterns: { scripts: [/leaflet\.js/, /leaflet\.css/], dom: ['.leaflet-container', '.leaflet-map-pane'] }, confidence: 85 },
 
     { name: 'Typeform', category: 'forms', url: 'https://typeform.com', isSignal: false, patterns: { scripts: [/typeform/] } },
     { name: 'Tally', category: 'forms', url: 'https://tally.so', isSignal: true, patterns: { scripts: [/tally\.so/] } },
@@ -320,7 +320,7 @@ export const TECH_PATTERNS: TechPattern[] = [
     { name: 'Typesense', category: 'search', url: 'https://typesense.org', isSignal: true, patterns: { scripts: [/typesense/] } },
     { name: 'MeiliSearch', category: 'search', url: 'https://meilisearch.com', isSignal: true, patterns: { scripts: [/meilisearch/] } },
 
-    { name: 'Socket.io', category: 'realtime', url: 'https://socket.io', isSignal: false, patterns: { globals: ['io'], scripts: [/socket\.io/] } },
+    { name: 'Socket.io', category: 'realtime', url: 'https://socket.io', isSignal: false, patterns: { scripts: [/socket\.io/, /socketio/], globals: ['io'] }, confidence: 75 },
     { name: 'Pusher', category: 'realtime', url: 'https://pusher.com', isSignal: false, patterns: { globals: ['Pusher'], scripts: [/pusher/] } },
     { name: 'Ably', category: 'realtime', url: 'https://ably.com', isSignal: true, patterns: { scripts: [/ably/] } },
     { name: 'Liveblocks', category: 'realtime', url: 'https://liveblocks.io', isSignal: true, patterns: { scripts: [/liveblocks/] } },
@@ -473,11 +473,10 @@ export const TECH_PATTERNS: TechPattern[] = [
         url: 'https://create-react-app.dev',
         isSignal: false,
         patterns: {
-            dom: ['#root'],
-            scripts: [/static\/js\/main\.[a-f0-9]+\.js/],
             html: [/You need to enable JavaScript to run this app/],
+            meta: [{ name: 'generator', content: /create-react-app/i }],
         },
-        confidence: 70,
+        confidence: 100,
         requires: ['React'],
     },
     {
@@ -773,7 +772,7 @@ export const TECH_PATTERNS: TechPattern[] = [
     },
     {
         name: 'Tilda',
-        category: 'ai-generated',
+        category: 'site-builder',
         url: 'https://tilda.cc',
         isSignal: false,
         patterns: {
@@ -901,11 +900,11 @@ export const TECH_PATTERNS: TechPattern[] = [
         url: 'https://elegantthemes.com/gallery/divi',
         isSignal: false,
         patterns: {
-            dom: ['[class*="et_pb_"]', '#et-main-area'],
-            scripts: [/divi/i],
+            dom: ['#et-main-area', '[class*="et_pb_"][class*="et_pb_section"]'],
+            scripts: [/divi.*\.js/i, /\/wp-content\/themes\/Divi/],
         },
-        confidence: 100,
-        implies: ['WordPress'],
+        confidence: 85,
+        requires: ['WordPress'],
     },
     {
         name: 'Divi AI',
@@ -1347,8 +1346,7 @@ export const TECH_PATTERNS: TechPattern[] = [
         isSignal: true,
         patterns: {
             url: [/\.observablehq\.com$/],
-            scripts: [/observable/i],
-            globals: ['Observable'],
+            scripts: [/observablehq\.com/, /@observablehq/, /observable\.runtime\.js/],
         },
         confidence: 100,
     },
@@ -1406,8 +1404,7 @@ export const TECH_PATTERNS: TechPattern[] = [
         isSignal: true,
         patterns: {
             globals: ['dash_clientside'],
-            dom: ['#react-entry-point', '[class*="dash-"]'],
-            scripts: [/dash/i],
+            scripts: [/dash.*plotly/, /plotly.*dash/, /\/_dash/],
         },
         confidence: 100,
     },

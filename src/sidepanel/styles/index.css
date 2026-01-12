@@ -100,14 +100,26 @@
   }
 
   .tech-grid {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
     width: 100%;
     overflow-x: hidden;
     overflow-y: hidden;
   }
 
-  /* Default: single column, inline category, hide block category */
+  .tech-grid > div {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .tech-item {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  /* Default: inline category, hide block category */
   .tech-item .category-inline {
     display: inline;
   }
@@ -116,25 +128,8 @@
     display: none;
   }
 
-  /* Narrow screens: 2-column grid with category beneath name */
+  /* Narrow screens: category beneath name */
   @container tech (max-width: 340px) {
-    .tech-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 0;
-    }
-
-    .tech-grid > div {
-      min-width: 0;
-      overflow: hidden;
-    }
-
-    .tech-item {
-      min-width: 0;
-      max-width: 100%;
-      overflow: hidden;
-    }
-
     .tech-item .category-inline {
       display: none;
     }

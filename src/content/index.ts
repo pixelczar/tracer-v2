@@ -86,10 +86,43 @@ function updateCursorPosition(e: MouseEvent) {
     targetY = e.clientY;
 }
 
+let underscoreBlinkInterval: number | null = null;
+let showUnderscore = true;
+
+function startUnderscoreBlink() {
+    if (underscoreBlinkInterval) return;
+    showUnderscore = true;
+    underscoreBlinkInterval = window.setInterval(() => {
+        showUnderscore = !showUnderscore;
+        if (cursorBubble && cursorBubble.innerHTML.includes('//')) {
+            const underscoreSpan = cursorBubble.querySelector('span');
+            if (underscoreSpan) {
+                underscoreSpan.style.opacity = showUnderscore ? '1' : '0';
+            }
+        }
+    }, 530);
+}
+
+function stopUnderscoreBlink() {
+    if (underscoreBlinkInterval) {
+        clearInterval(underscoreBlinkInterval);
+        underscoreBlinkInterval = null;
+    }
+    showUnderscore = true;
+}
+
 function showCursorBubble(message: string) {
     createCursorBubble();
     if (cursorBubble) {
-        cursorBubble.textContent = message;
+        if (message === '//_') {
+            cursorBubble.innerHTML = '//<span style="opacity: 1; color: #eaff00; letter-spacing: -0.1em;">_</span>';
+            cursorBubble.style.textTransform = 'none';
+            startUnderscoreBlink();
+        } else {
+            cursorBubble.textContent = message;
+            cursorBubble.style.textTransform = 'uppercase';
+            stopUnderscoreBlink();
+        }
         cursorBubble.style.opacity = '1';
     }
     document.addEventListener('mousemove', updateCursorPosition);
@@ -100,12 +133,21 @@ function hideCursorBubble() {
     if (cursorBubble) {
         cursorBubble.style.opacity = '0';
     }
+    stopUnderscoreBlink();
     document.removeEventListener('mousemove', updateCursorPosition);
 }
 
 function updateCursorMessage(message: string) {
     if (cursorBubble) {
-        cursorBubble.textContent = message;
+        if (message === '//_') {
+            cursorBubble.innerHTML = `//<span style="opacity: ${showUnderscore ? 1 : 0}; color: #eaff00; letter-spacing: -0.1em;">_</span>`;
+            cursorBubble.style.textTransform = 'none';
+            startUnderscoreBlink();
+        } else {
+            cursorBubble.textContent = message;
+            cursorBubble.style.textTransform = 'uppercase';
+            stopUnderscoreBlink();
+        }
     }
 }
 
@@ -130,14 +172,11 @@ safeAddMessageListener((message, _sender, sendResponse) => {
                 return false;
             }
             console.log('[Tracer] Content script received message:', message.type);
-            showCursorBubble('Scanning');
+            // Cursor message will be set by extension via UPDATE_CURSOR
             runFullExtraction(message.payload).then((result) => {
-                updateCursorMessage('Complete');
-                setTimeout(() => hideCursorBubble(), 1000);
                 sendResponse(result);
             }).catch((err) => {
                 console.error('[Tracer] Extraction error:', err);
-                hideCursorBubble();
                 sendResponse(null);
             });
             return true;
@@ -149,21 +188,17 @@ safeAddMessageListener((message, _sender, sendResponse) => {
                 return false;
             }
             console.log('[Tracer] Content script received message:', message.type);
-            showCursorBubble('Target acquisition');
+            // Cursor message will be set by extension via UPDATE_CURSOR
             enterInspectMode((element) => {
-                updateCursorMessage('Analyzing');
                 safeSendMessage({ type: 'INSPECT_SELECT' });
                 // Analyze element and send back
                 import('./inspect/analyzer').then(({ analyzeElement }) => {
                     analyzeElement(element).then((result) => {
-                        updateCursorMessage('Captured');
                         exitInspectMode(); // Force exit immediately
-                        setTimeout(() => hideCursorBubble(), 500);
                         safeSendMessage({ type: 'INSPECT_COMPLETE', payload: result });
                     }).catch((err) => {
                         console.error('[Tracer] Analyze error:', err);
                         exitInspectMode();
-                        hideCursorBubble();
                     });
                 });
             });

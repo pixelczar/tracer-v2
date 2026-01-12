@@ -12,7 +12,7 @@ import { IconInspect, IconRefresh } from './components/Icons';
 import { getSettings } from '../shared/settings';
 import { ScrambleText } from './components/ScrambleText';
 import type { ScanResult, ScanState, InspectedElement, InspectState } from '../shared/types';
-import { safeSendMessage, safeAddMessageListener, isExtensionContextValid } from '../shared/chromeUtils';
+import { safeSendMessage, safeSendMessageToTab, safeAddMessageListener, isExtensionContextValid } from '../shared/chromeUtils';
 import logoLight from '../assets/tracer-text-on-light-slashes-00.svg';
 import logoDark from '../assets/tracer-text-on-dark-slashes-00.svg';
 
@@ -52,19 +52,86 @@ function CursorBubble({ message, visible, instanceKey }: { message: string; visi
     const cursorX = useMotionValue(-100);
     const cursorY = useMotionValue(-100);
     const [showUnderscore, setShowUnderscore] = useState(true);
+    const bubbleRef = useRef<HTMLDivElement>(null);
 
     const springConfig = { damping: 25, stiffness: 400 };
     const x = useSpring(cursorX, springConfig);
     const y = useSpring(cursorY, springConfig);
 
     useEffect(() => {
-        const move = (e: MouseEvent) => {
-            cursorX.set(e.clientX + 10);
-            cursorY.set(e.clientY + 10);
+        if (!visible) return;
+
+        const updatePosition = (clientX: number, clientY: number) => {
+            // Use requestAnimationFrame to ensure bubble is rendered
+            requestAnimationFrame(() => {
+                if (!bubbleRef.current) {
+                    // Fallback if ref not ready
+                    cursorX.set(clientX + 10);
+                    cursorY.set(clientY + 10);
+                    return;
+                }
+                
+                const bubbleRect = bubbleRef.current.getBoundingClientRect();
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+                
+                const offsetX = 10;
+                const offsetY = 10;
+                
+                let adjustedX = clientX + offsetX;
+                let adjustedY = clientY + offsetY;
+                
+                // Check right edge
+                if (adjustedX + bubbleRect.width > viewportWidth) {
+                    adjustedX = clientX - bubbleRect.width - offsetX;
+                }
+                
+                // Check left edge
+                if (adjustedX < 0) {
+                    adjustedX = offsetX;
+                }
+                
+                // Check bottom edge
+                if (adjustedY + bubbleRect.height > viewportHeight) {
+                    adjustedY = clientY - bubbleRect.height - offsetY;
+                }
+                
+                // Check top edge
+                if (adjustedY < 0) {
+                    adjustedY = offsetY;
+                }
+                
+                cursorX.set(adjustedX);
+                cursorY.set(adjustedY);
+            });
         };
+
+        const move = (e: MouseEvent) => {
+            updatePosition(e.clientX, e.clientY);
+        };
+        
         window.addEventListener('mousemove', move);
-        return () => window.removeEventListener('mousemove', move);
-    }, [cursorX, cursorY]);
+        
+        // Also update on resize/scroll to handle edge cases
+        const handleResize = () => {
+            // Get current cursor position from motion values
+            const currentX = cursorX.get();
+            const currentY = cursorY.get();
+            if (currentX > 0 && currentY > 0) {
+                // Estimate cursor position (approximate)
+                updatePosition(currentX - 10, currentY - 10);
+            }
+        };
+        
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('scroll', handleResize, true);
+        
+        return () => {
+            window.removeEventListener('mousemove', move);
+            window.removeEventListener('resize', handleResize);
+            window.removeEventListener('scroll', handleResize, true);
+        };
+    }, [cursorX, cursorY, visible]);
 
     // Blink underscore for "//_" message
     useEffect(() => {
@@ -90,6 +157,7 @@ function CursorBubble({ message, visible, instanceKey }: { message: string; visi
         <AnimatePresence mode="wait">
             {visible && (
                 <motion.div
+                    ref={bubbleRef}
                     key={instanceKey}
                     className="fixed top-0 left-0 pointer-events-none z-[9999] bg-[#0a0a0a] text-[#f0f0f0] px-3 py-1.5 text-2xs font-mono uppercase tracking-wider rounded-full shadow-lg border border-white/5"
                     style={{ x, y }}
@@ -200,7 +268,7 @@ export default function App() {
                     break;
                 case 'SCAN_ERROR':
                     setScanState('error');
-                    setCursorMessage('Error, retrying');
+                    setCursorMessage('//_');
                     setHeaderStatus('Error, retrying');
                     setCursorVisible(true);
                     break;
@@ -208,7 +276,7 @@ export default function App() {
                     if (message.payload) {
                         setInspectedElement(message.payload as InspectedElement);
                         setInspectState('complete');
-                        setCursorMessage('Captured');
+                        setCursorMessage('//_');
                         setTimeout(() => setCursorVisible(false), 1000);
                     }
                     break;
@@ -228,18 +296,45 @@ export default function App() {
         return removeListener;
     }, []);
 
+    // Sync cursor bubble with content script (DOM/site part)
+    useEffect(() => {
+        if (!isExtensionContextValid()) return;
+
+        const syncCursor = async () => {
+            try {
+                const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+                if (!tab?.id) return;
+
+                if (cursorVisible && cursorMessage) {
+                    await safeSendMessageToTab(tab.id, { 
+                        type: 'UPDATE_CURSOR', 
+                        message: cursorMessage
+                    });
+                } else {
+                    await safeSendMessageToTab(tab.id, { 
+                        type: 'HIDE_CURSOR'
+                    });
+                }
+            } catch (err) {
+                // Silently fail - content script might not be loaded yet
+            }
+        };
+
+        syncCursor();
+    }, [cursorMessage, cursorVisible]);
+
     useEffect(() => {
         startScan();
     }, []);
 
     const scanningRef = useRef(false);
 
-    const startScan = async () => {
+        const startScan = async () => {
         if (scanningRef.current) return;
         if (!isExtensionContextValid()) {
             console.warn('[Tracer] Extension context invalidated, cannot start scan');
             setScanState('error');
-            setCursorMessage('Error, retrying');
+            setCursorMessage('//_');
             setHeaderStatus('Error, retrying');
             setCursorVisible(true);
             return;
@@ -268,7 +363,7 @@ export default function App() {
             } catch (err) {
                 console.error('[Tracer] Error starting scan:', err);
                 setScanState('error');
-                setCursorMessage('Error, retrying');
+                setCursorMessage('//_');
                 setHeaderStatus('Error, retrying');
                 setCursorVisible(true);
             } finally {
@@ -284,7 +379,7 @@ export default function App() {
         } catch (err) {
             console.error('[Tracer] Error starting scan:', err);
             setScanState('error');
-            setCursorMessage('Error, retrying');
+            setCursorMessage('//_');
             setHeaderStatus('Error, retrying');
             setCursorVisible(true);
         } finally {
@@ -333,7 +428,7 @@ export default function App() {
                     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
                     if (tab?.id) {
                         // Update message to show we're refreshing
-                        setCursorMessage('Error, refreshing page...');
+                        setCursorMessage('//_');
                         setHeaderStatus('Error, refreshing page...');
                         
                         // Refresh the tab
@@ -372,7 +467,7 @@ export default function App() {
                 } catch (err) {
                     console.error('[Tracer] Error refreshing tab:', err);
                     retryRef.current = false;
-                    setCursorMessage('Error, retrying');
+                    setCursorMessage('//_');
                     setHeaderStatus('Error, retrying');
                     setCursorVisible(true);
                 }
@@ -639,7 +734,7 @@ export default function App() {
                                                     className="group"
                                                 >
                                                     <SectionHeader text="Colors" isSectionHovered={isHovered} />
-                                                    <ColorSection colors={data.colors} />
+                                                    <ColorSection colors={data.colors} theme={theme} />
                                                 </motion.section>
                                             )}
                                         </SectionWrapper>

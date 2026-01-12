@@ -77,7 +77,7 @@ const TECH_ICON_MAP: Record<string, string> = {
 
     // Graphics & Animation
     'GSAP': 'GSAP.svg',
-    'Framer Motion': 'Framer Motion.svg',
+    'Framer Motion': 'Framer Sites.svg', // Using Framer Sites icon as fallback
     'Anime.js': 'Anime.js.svg',
     'Lottie': 'Lottie.svg',
     'Rive': 'Rive.svg',
@@ -123,6 +123,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Storyblok': 'Storyblok.svg',
     'Prismic': 'Prismic.svg',
     'Ghost': 'Ghost.svg',
+    'Payload': 'PayloadCMS.svg',
     // Note: Missing icons will use Tracer logo as placeholder in TechItem component
 
     // E-commerce
@@ -159,6 +160,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'FullStory': 'FullStory.svg',
     'Hotjar': 'Hotjar.svg',
     'LogRocket': 'LogRocket.svg',
+    'Datadog': 'Datadog.svg',
     'Clarity': 'Microsoft Clarity.svg',
     'LinkedIn Insight Tag': 'LinkedIn.svg',
     'Microsoft Power BI': 'Microsoft Clarity.svg',
@@ -234,6 +236,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Highlight': 'Highlight.svg',
     'New Relic': 'New Relic.svg',
     'Cloudflare Browser Insights': 'Cloudflare.svg',
+    'Asana': 'Asana.svg',
 
     // Security
     'HSTS': 'HSTS.svg',
@@ -248,7 +251,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Auth0': 'Auth0.svg',
     'NextAuth.js': 'NextAuth.svg',
     'Supabase Auth': 'Supabase.svg',
-    'Google Sign-in': 'Google Ads.svg', // Using Google icon as placeholder
+    'Google Sign-in': 'Google.svg',
 
     // Consent
     'OneTrust': 'OneTrust.svg',
@@ -328,6 +331,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Google Ads Conversion Tracking': 'Google Ads.svg',
     'DoubleClick': 'DoubleClick.svg',
     'DoubleClick Floodlight': 'DoubleClick.svg',
+    'Microsoft Advertising': 'Microsoft.svg',
 
     // Cloud Services
     'Azure Edge Network': 'Azure.svg',
