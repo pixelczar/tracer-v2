@@ -15,9 +15,24 @@ let isActivated = false;
 if (typeof window !== 'undefined') {
     window.addEventListener('error', (event) => {
         const errorMsg = event.message || String(event.error);
+        const errorStack = event.error?.stack || '';
+        
+        // Suppress expected errors
         if (errorMsg.includes('Extension context invalidated') ||
             errorMsg.includes('message port closed')) {
             // Suppress these errors - they're expected when extension reloads
+            event.preventDefault();
+            return false;
+        }
+        
+        // Suppress DOMException errors related to cursor bubble - they're non-critical
+        if (event.error instanceof DOMException || 
+            errorMsg.includes('DOMException') ||
+            errorStack.includes('createCursorBubble') ||
+            errorStack.includes('showCursorBubble') ||
+            errorStack.includes('updateCursorMessage') ||
+            errorStack.includes('appendChild')) {
+            console.warn('[Tracer] Suppressed DOM error (non-critical):', event.error);
             event.preventDefault();
             return false;
         }
@@ -33,50 +48,77 @@ let currentY = -100;
 let animationFrame: number | null = null;
 
 function createCursorBubble() {
-    if (cursorBubble && document.body.contains(cursorBubble)) return;
+    if (cursorBubble && document.body && document.body.contains(cursorBubble)) return;
 
-    cursorBubble = document.createElement('div');
-    cursorBubble.id = 'tracer-cursor-bubble';
-    cursorBubble.style.cssText = `
-    position: fixed;
-    pointer-events: none;
-    z-index: 2147483647;
-    background: #0a0a0a;
-    color: #f0f0f0;
-    padding: 6px 12px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    border-radius: 9999px;
-    opacity: 0;
-    white-space: nowrap;
-    transition: opacity 0.1s ease;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.05);
-  `;
-    document.body.appendChild(cursorBubble);
-    console.log('[Tracer] Cursor bubble created');
+    // Check if document.body is available
+    if (!document.body) {
+        console.warn('[Tracer] Cannot create cursor bubble: document.body is not available');
+        return;
+    }
 
-    // Start animation loop
-    if (!animationFrame) {
-        startCursorAnimation();
+    try {
+        cursorBubble = document.createElement('div');
+        cursorBubble.id = 'tracer-cursor-bubble';
+        cursorBubble.style.cssText = `
+        position: fixed;
+        pointer-events: none;
+        z-index: 2147483647;
+        background: #0a0a0a;
+        color: #f0f0f0;
+        padding: 6px 12px;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 10px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-radius: 9999px;
+        opacity: 0;
+        white-space: nowrap;
+        transition: opacity 0.1s ease;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.05);
+      `;
+        document.body.appendChild(cursorBubble);
+        console.log('[Tracer] Cursor bubble created');
+
+        // Start animation loop
+        if (!animationFrame) {
+            startCursorAnimation();
+        }
+    } catch (err) {
+        console.error('[Tracer] Failed to create cursor bubble:', err);
+        cursorBubble = null;
     }
 }
 
 function startCursorAnimation() {
     const animate = () => {
-        // Smooth lerp interpolation - faster to reduce lag
-        const lerp = 0.5;
-        currentX += (targetX - currentX) * lerp;
-        currentY += (targetY - currentY) * lerp;
+        try {
+            // Smooth lerp interpolation - faster to reduce lag
+            const lerp = 0.5;
+            currentX += (targetX - currentX) * lerp;
+            currentY += (targetY - currentY) * lerp;
 
-        if (cursorBubble) {
-            cursorBubble.style.left = `${currentX + 12}px`;
-            cursorBubble.style.top = `${currentY + 12}px`;
+            if (cursorBubble && document.body && document.body.contains(cursorBubble)) {
+                cursorBubble.style.left = `${currentX + 12}px`;
+                cursorBubble.style.top = `${currentY + 12}px`;
+            } else if (!cursorBubble || !document.body || !document.body.contains(cursorBubble)) {
+                // Stop animation if bubble was removed
+                if (animationFrame) {
+                    cancelAnimationFrame(animationFrame);
+                    animationFrame = null;
+                }
+                return;
+            }
+
+            animationFrame = requestAnimationFrame(animate);
+        } catch (err) {
+            console.error('[Tracer] Error in cursor animation:', err);
+            // Stop animation on error
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+                animationFrame = null;
+            }
         }
-
-        animationFrame = requestAnimationFrame(animate);
     };
     animate();
 }
@@ -112,42 +154,57 @@ function stopUnderscoreBlink() {
 }
 
 function showCursorBubble(message: string) {
-    createCursorBubble();
-    if (cursorBubble) {
-        if (message === '//_') {
-            cursorBubble.innerHTML = '//<span style="opacity: 1; color: #eaff00; letter-spacing: -0.1em;">_</span>';
-            cursorBubble.style.textTransform = 'none';
-            startUnderscoreBlink();
-        } else {
-            cursorBubble.textContent = message;
-            cursorBubble.style.textTransform = 'uppercase';
-            stopUnderscoreBlink();
+    try {
+        createCursorBubble();
+        if (cursorBubble && document.body && document.body.contains(cursorBubble)) {
+            if (message === '//_') {
+                cursorBubble.innerHTML = '//<span style="opacity: 1; color: #eaff00; letter-spacing: -0.1em;">_</span>';
+                cursorBubble.style.textTransform = 'none';
+                startUnderscoreBlink();
+            } else {
+                cursorBubble.textContent = message;
+                cursorBubble.style.textTransform = 'uppercase';
+                stopUnderscoreBlink();
+            }
+            cursorBubble.style.opacity = '1';
         }
-        cursorBubble.style.opacity = '1';
+        document.addEventListener('mousemove', updateCursorPosition);
+        console.log('[Tracer] Showing cursor bubble:', message);
+    } catch (err) {
+        console.error('[Tracer] Error showing cursor bubble:', err);
+        // Don't throw - cursor bubble is non-critical
     }
-    document.addEventListener('mousemove', updateCursorPosition);
-    console.log('[Tracer] Showing cursor bubble:', message);
 }
 
 function hideCursorBubble() {
-    if (cursorBubble) {
-        cursorBubble.style.opacity = '0';
+    try {
+        if (cursorBubble && document.body && document.body.contains(cursorBubble)) {
+            cursorBubble.style.opacity = '0';
+        }
+        stopUnderscoreBlink();
+        document.removeEventListener('mousemove', updateCursorPosition);
+    } catch (err) {
+        console.error('[Tracer] Error hiding cursor bubble:', err);
+        // Don't throw - cursor bubble is non-critical
     }
-    stopUnderscoreBlink();
-    document.removeEventListener('mousemove', updateCursorPosition);
 }
 
 function updateCursorMessage(message: string) {
-    if (cursorBubble) {
-        if (message === '//_') {
-            cursorBubble.innerHTML = `//<span style="opacity: ${showUnderscore ? 1 : 0}; color: #eaff00; letter-spacing: -0.1em;">_</span>`;
-            cursorBubble.style.textTransform = 'none';
-            startUnderscoreBlink();
-        } else {
-            cursorBubble.textContent = message;
-            cursorBubble.style.textTransform = 'uppercase';
-            stopUnderscoreBlink();
+    try {
+        if (cursorBubble && document.body && document.body.contains(cursorBubble)) {
+            if (message === '//_') {
+                cursorBubble.innerHTML = `//<span style="opacity: ${showUnderscore ? 1 : 0}; color: #eaff00; letter-spacing: -0.1em;">_</span>`;
+                cursorBubble.style.textTransform = 'none';
+                startUnderscoreBlink();
+            } else {
+                cursorBubble.textContent = message;
+                cursorBubble.style.textTransform = 'uppercase';
+                stopUnderscoreBlink();
+            }
         }
+    } catch (err) {
+        console.error('[Tracer] Error updating cursor message:', err);
+        // Don't throw - cursor bubble is non-critical
     }
 }
 
@@ -176,7 +233,22 @@ safeAddMessageListener((message, _sender, sendResponse) => {
             runFullExtraction(message.payload).then((result) => {
                 sendResponse(result);
             }).catch((err) => {
-                console.error('[Tracer] Extraction error:', err);
+                // Filter out cursor bubble and DOM manipulation errors - they're non-critical
+                const errorMsg = err?.message || String(err);
+                const errorStack = err?.stack || '';
+                const isDOMError = err instanceof DOMException || 
+                                 errorMsg.includes('DOMException') ||
+                                 errorMsg.includes('cursor bubble') ||
+                                 errorMsg.includes('Cursor bubble') ||
+                                 errorStack.includes('createCursorBubble') ||
+                                 errorStack.includes('showCursorBubble') ||
+                                 errorStack.includes('updateCursorMessage');
+                
+                if (isDOMError) {
+                    console.warn('[Tracer] DOM/cursor bubble error (non-critical):', err);
+                } else {
+                    console.error('[Tracer] Extraction error:', err);
+                }
                 sendResponse(null);
             });
             return true;
@@ -250,20 +322,37 @@ safeAddMessageListener((message, _sender, sendResponse) => {
 async function runFullExtraction(payload: any = {}) {
     console.log('[Tracer] Running full extraction');
 
-    safeSendMessage({ type: 'SCAN_PROGRESS', payload: { status: 'Analyzing Colors' } });
-    const colors = await extractColors();
+    // Wrap each extraction in try/catch to prevent one failure from blocking all
+    let colors: Awaited<ReturnType<typeof extractColors>> = [];
+    let fonts: Awaited<ReturnType<typeof extractFonts>> = [];
+    let tech: Awaited<ReturnType<typeof extractTech>> = [];
 
-    safeSendMessage({ type: 'SCAN_PROGRESS', payload: { status: 'Tracing Typography' } });
-    const fonts = await extractFonts();
+    try {
+        safeSendMessage({ type: 'SCAN_PROGRESS', payload: { status: 'Analyzing Colors' } });
+        colors = await extractColors();
+    } catch (err) {
+        console.error('[Tracer] Color extraction failed:', err);
+    }
 
-    safeSendMessage({ type: 'SCAN_PROGRESS', payload: { status: 'Detecting Tech' } });
-    const tech = await extractTech({
-        headers: payload.headers,
-        mainWorldGlobals: payload.mainWorldGlobals,
-        mainWorldVersions: payload.mainWorldVersions,
-        cookies: document.cookie,
-        deepScan: payload.deepScan || false
-    });
+    try {
+        safeSendMessage({ type: 'SCAN_PROGRESS', payload: { status: 'Tracing Typography' } });
+        fonts = await extractFonts();
+    } catch (err) {
+        console.error('[Tracer] Font extraction failed:', err);
+    }
+
+    try {
+        safeSendMessage({ type: 'SCAN_PROGRESS', payload: { status: 'Detecting Tech' } });
+        tech = await extractTech({
+            headers: payload.headers,
+            mainWorldGlobals: payload.mainWorldGlobals,
+            mainWorldVersions: payload.mainWorldVersions,
+            cookies: document.cookie,
+            deepScan: payload.deepScan || false
+        });
+    } catch (err) {
+        console.error('[Tracer] Tech extraction failed:', err);
+    }
 
     console.log('[Tracer] Extraction complete:', { colors: colors.length, fonts: fonts.length, tech: tech.length });
 

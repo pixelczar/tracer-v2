@@ -34,7 +34,7 @@ function SectionWrapper({ children }: { children: (isHovered: boolean) => React.
 
 function SectionHeader({ text, isSectionHovered, count }: { text: string; isSectionHovered: boolean; count?: number }) {
     return (
-        <h2 className="text-[12px] text-muted mb-4 flex items-center">
+        <h2 className="text-[12px] text-muted mb-2 flex items-center">
             <span className="inline-block min-w-[4ch]">
                 <ScrambleText text={text} trigger={isSectionHovered} />
             </span>
@@ -540,8 +540,13 @@ export default function App() {
                 onMouseLeave={() => setIsHovering(false)}
             >
                 <div className="w-full max-w-96 mx-auto flex flex-col min-h-screen scrollbar-gutter-stable">
-                    <header className="flex items-center justify-between px-3 pt-3 pb-2">
-                        <div className={`flex items-center gap-2.5 flex-1 min-w-0 transition-all duration-300 ${isSettingsOpen ? 'blur-lg' : ''}`}>
+                    <header 
+                        className="sticky top-0 z-10 flex items-center justify-between px-3 pt-3 pb-2 bg-bg"
+                        style={{
+                            boxShadow: `0 12px 32px -6px var(--bg), 0 6px 16px -3px var(--bg), 0 2px 8px -1px var(--bg)`
+                        }}
+                    >
+                        <div className={`relative z-10 flex items-center gap-2.5 flex-1 min-w-0 transition-all duration-300 ${isSettingsOpen ? 'blur-lg' : ''}`}>
                             <AnimatePresence mode="wait">
                                 {!revealData && headerStatus ? (
                                     <motion.div
@@ -580,7 +585,7 @@ export default function App() {
                             </AnimatePresence>
                         </div>
                         <motion.div 
-                            className={`flex items-center gap-0.5 flex-shrink-0 transition-all duration-300 ${isSettingsOpen ? 'blur-lg' : ''}`}
+                            className={`relative z-10 flex items-center gap-0.5 flex-shrink-0 transition-all duration-300 ${isSettingsOpen ? 'blur-lg' : ''}`}
                             initial="hidden"
                             animate={showHeader ? "visible" : "hidden"}
                             variants={{
@@ -599,15 +604,15 @@ export default function App() {
                                 disabled={isLoading}
                                 className="
                                     w-8 h-8 flex items-center justify-center rounded-lg flex-shrink-0
-                                    text-fg opacity-40 transition-all
-                                    border border-transparent hover:opacity-100
+                                    text-fg transition-all
+                                    border border-transparent
                                     disabled:opacity-20
                                 "
-                                // title="Rescan"
                                 variants={{
                                     hidden: { opacity: 0, y: -3 },
                                     visible: { opacity: 0.4, y: 0 }
                                 }}
+                                whileHover={{ opacity: 1 }}
                                 transition={{ duration: 0.5, ease: sexyEase }}
                             >
                                 <IconRefresh />
@@ -619,7 +624,7 @@ export default function App() {
                                     transition-all border border-transparent
                                     ${isInspecting 
                                         ? 'bg-accent text-black' 
-                                        : 'text-fg opacity-40 hover:opacity-100'
+                                        : 'text-fg'
                                     }
                                 `}
                                 variants={{
@@ -633,6 +638,7 @@ export default function App() {
                                     } 
                                     : { opacity: 0, y: -3 }
                                 }
+                                whileHover={isInspecting ? {} : { opacity: 1 }}
                                 transition={{ duration: 0.5, ease: sexyEase }}
                             >
                                 <IconInspect />

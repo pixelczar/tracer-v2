@@ -17,54 +17,105 @@ interface FontDetails {
 }
 
 export async function extractFonts(): Promise<FontInfo[]> {
-    const fontMap = new Map<string, FontDetails>();
-    const fontNameMap = new Map<string, string>(); // Maps CSS names to actual font names
+    try {
+        const fontMap = new Map<string, FontDetails>();
+        const fontNameMap = new Map<string, string>(); // Maps CSS names to actual font names
 
-    // 1. Scan computed styles (collect CSS names first)
-    scanComputedFonts(fontMap, fontNameMap);
+        // 1. Scan computed styles (collect CSS names first)
+        try {
+            scanComputedFonts(fontMap, fontNameMap);
+        } catch (err) {
+            console.warn('[Tracer] Error scanning computed fonts:', err);
+        }
 
-    // 2. Check document.fonts API for all loaded fonts (catches fonts not in first 300 elements)
-    detectLoadedFonts(fontMap, fontNameMap);
-    
-    // 3. Build a map of CSS font names to actual font names from document.fonts and @font-face
-    // Do this after collecting all CSS names
-    await buildFontNameMap(fontNameMap);
+        // 2. Check document.fonts API for all loaded fonts (catches fonts not in first 300 elements)
+        try {
+            detectLoadedFonts(fontMap, fontNameMap);
+        } catch (err) {
+            console.warn('[Tracer] Error detecting loaded fonts:', err);
+        }
+        
+        // 3. Build a map of CSS font names to actual font names from document.fonts and @font-face
+        // Do this after collecting all CSS names
+        try {
+            await buildFontNameMap(fontNameMap);
+        } catch (err) {
+            console.warn('[Tracer] Error building font name map:', err);
+        }
 
-    // 3. Check for Google Fonts
-    detectGoogleFonts(fontMap);
+        // 3. Check for Google Fonts
+        try {
+            detectGoogleFonts(fontMap);
+        } catch (err) {
+            console.warn('[Tracer] Error detecting Google fonts:', err);
+        }
 
-    // 4. Check for Adobe Fonts
-    detectAdobeFonts(fontMap);
+        // 4. Check for Adobe Fonts
+        try {
+            detectAdobeFonts(fontMap);
+        } catch (err) {
+            console.warn('[Tracer] Error detecting Adobe fonts:', err);
+        }
 
-    // 5. Detect icon fonts
-    detectIconFonts(fontMap);
+        // 5. Detect icon fonts
+        try {
+            detectIconFonts(fontMap);
+        } catch (err) {
+            console.warn('[Tracer] Error detecting icon fonts:', err);
+        }
 
-    // 6. Extract icon samples for icon fonts
-    extractIconSamples(fontMap);
+        // 6. Extract icon samples for icon fonts
+        try {
+            extractIconSamples(fontMap);
+        } catch (err) {
+            console.warn('[Tracer] Error extracting icon samples:', err);
+        }
 
-    // 7. Normalize weights for variable fonts
-    normalizeVariableFontWeights(fontMap);
+        // 7. Normalize weights for variable fonts
+        try {
+            normalizeVariableFontWeights(fontMap);
+        } catch (err) {
+            console.warn('[Tracer] Error normalizing font weights:', err);
+        }
 
-    // 8. Generate previews
-    const settings = await getSettingsAsync();
-    const previewText = getFontPreviewText(settings.fontPreviewSource);
-    const fonts = await Promise.all(
-        Array.from(fontMap.values()).map(async (details) => {
-            // Use actual font name if available, otherwise use the CSS name
-            const actualName = fontNameMap.get(details.family) || details.family;
-            return {
-                ...details,
-                family: actualName,
-                preview: await generatePreview(details, previewText),
-                isMono: details.isMono,
-                isSerif: details.isSerif,
-                isIconFont: details.isIconFont,
-                iconSamples: details.iconSamples,
-            };
-        })
-    );
+        // 8. Generate previews
+        const settings = await getSettingsAsync();
+        const previewText = getFontPreviewText(settings.fontPreviewSource);
+        const fonts = await Promise.all(
+            Array.from(fontMap.values()).map(async (details) => {
+                try {
+                    // Use actual font name if available, otherwise use the CSS name
+                    const actualName = fontNameMap.get(details.family) || details.family;
+                    return {
+                        ...details,
+                        family: actualName,
+                        preview: await generatePreview(details, previewText),
+                        isMono: details.isMono,
+                        isSerif: details.isSerif,
+                        isIconFont: details.isIconFont,
+                        iconSamples: details.iconSamples,
+                    };
+                } catch (err) {
+                    console.warn('[Tracer] Error generating preview for font:', details.family, err);
+                    // Return font with fallback preview
+                    return {
+                        ...details,
+                        family: fontNameMap.get(details.family) || details.family,
+                        preview: { method: 'canvas' as const, data: '', previews: [], weightPreviews: {}, previewText },
+                        isMono: details.isMono,
+                        isSerif: details.isSerif,
+                        isIconFont: details.isIconFont,
+                        iconSamples: details.iconSamples,
+                    };
+                }
+            })
+        );
 
-    return fonts.filter(f => !isSystemFont(f.family));
+        return fonts.filter(f => !isSystemFont(f.family));
+    } catch (err) {
+        console.error('[Tracer] Fatal error in extractFonts:', err);
+        return []; // Return empty array instead of throwing
+    }
 }
 
 async function buildFontNameMap(fontNameMap: Map<string, string>) {
@@ -172,43 +223,64 @@ async function buildFontNameMap(fontNameMap: Map<string, string>) {
             if (cssToActualName.has(cssName)) continue; // Already mapped
             
             // Create a test element to see what font is actually rendered
+            if (!document.body) {
+                continue; // Skip if document.body is not available
+            }
+            
             const testEl = document.createElement('span');
             testEl.style.fontFamily = `"${cssName}"`;
             testEl.style.position = 'absolute';
             testEl.style.visibility = 'hidden';
             testEl.style.fontSize = '16px';
             testEl.textContent = 'A';
-            document.body.appendChild(testEl);
             
-            // Wait a bit for font to load
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
-            // Check document.fonts to see which font face is actually being used
-            // Note: fontFace.family usually just returns the CSS name, not the actual font name
-            // So we'll only use it if it's clearly a clean, real font name
-            for (const fontFace of document.fonts) {
-                const fontSpec = `400 normal 16px "${cssName}"`;
-                if (document.fonts.check(fontSpec)) {
-                    const fontFaceFamily = fontFace.family;
-                    // Only use if it's clearly different and looks like a real font name
-                    if (fontFaceFamily !== cssName && 
-                        fontFaceFamily.length >= 2 &&
-                        fontFaceFamily.length <= 50 &&
-                        !fontFaceFamily.startsWith('__') && 
-                        !/_[a-f0-9]{6,}$/i.test(fontFaceFamily) &&
-                        !/^[a-f0-9]{8,}/i.test(fontFaceFamily) &&
-                        /[a-z]/i.test(fontFaceFamily) &&
-                        !/\.(p|s|js|css)$/i.test(fontFaceFamily)) {
-                        // Only use if we don't already have a better mapping
-                        if (!cssToActualName.has(cssName)) {
-                            cssToActualName.set(cssName, fontFaceFamily);
+            try {
+                document.body.appendChild(testEl);
+                
+                // Wait a bit for font to load
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Check document.fonts to see which font face is actually being used
+                // Note: fontFace.family usually just returns the CSS name, not the actual font name
+                // So we'll only use it if it's clearly a clean, real font name
+                for (const fontFace of document.fonts) {
+                    const fontSpec = `400 normal 16px "${cssName}"`;
+                    if (document.fonts.check(fontSpec)) {
+                        const fontFaceFamily = fontFace.family;
+                        // Only use if it's clearly different and looks like a real font name
+                        if (fontFaceFamily !== cssName && 
+                            fontFaceFamily.length >= 2 &&
+                            fontFaceFamily.length <= 50 &&
+                            !fontFaceFamily.startsWith('__') && 
+                            !/_[a-f0-9]{6,}$/i.test(fontFaceFamily) &&
+                            !/^[a-f0-9]{8,}/i.test(fontFaceFamily) &&
+                            /[a-z]/i.test(fontFaceFamily) &&
+                            !/\.(p|s|js|css)$/i.test(fontFaceFamily)) {
+                            // Only use if we don't already have a better mapping
+                            if (!cssToActualName.has(cssName)) {
+                                cssToActualName.set(cssName, fontFaceFamily);
+                            }
+                            break;
                         }
-                        break;
                     }
                 }
+                
+                // Clean up test element
+                if (document.body.contains(testEl)) {
+                    document.body.removeChild(testEl);
+                }
+            } catch (err) {
+                // Clean up test element if appendChild failed or removeChild fails
+                if (testEl.parentNode) {
+                    try {
+                        testEl.parentNode.removeChild(testEl);
+                    } catch {
+                        // Ignore cleanup errors
+                    }
+                }
+                // Continue to next font if this one fails
+                continue;
             }
-            
-            document.body.removeChild(testEl);
         }
     }
     
@@ -742,7 +814,7 @@ function getFontPreviewText(source: 'pangram' | 'og-description' | 'page-content
 async function generatePreview(font: FontDetails, previewText?: string): Promise<FontPreview> {
     const textToUse = previewText || PANGRAMS[0];
     
-    // Google Fonts — use import URL
+    // Google Fonts — use import URL (works in sidepanel via <link> tag)
     if (font.source === 'google') {
         return {
             method: 'google',
@@ -751,7 +823,7 @@ async function generatePreview(font: FontDetails, previewText?: string): Promise
         };
     }
 
-    // Try to extract font as data URI
+    // Try to extract font as data URI (works in sidepanel - font is embedded)
     const fontUrl = findFontUrl(font.family);
     if (fontUrl) {
         try {
@@ -764,48 +836,52 @@ async function generatePreview(font: FontDetails, previewText?: string): Promise
                 previewText: textToUse,
             };
         } catch {
-            // CORS blocked - font file exists but can't be fetched
-            // Check if font is already loaded on the page - if so, use CSS method
-            if (document.fonts && document.fonts.check) {
-                const fontSpec = `${font.weights[0] || '400'} 16px "${font.family}"`;
-                if (document.fonts.check(fontSpec)) {
-                    // Font is loaded on the page - use CSS method so browser can render it
-                    return {
-                        method: 'css',
-                        data: font.family,
-                        previewText: textToUse,
-                    };
-                }
-            }
-        }
-    } else {
-        // No font URL found, but check if font is loaded on the page
-        if (document.fonts && document.fonts.check) {
-            const fontSpec = `${font.weights[0] || '400'} 16px "${font.family}"`;
-            if (document.fonts.check(fontSpec)) {
-                // Font is loaded on the page - use CSS method so browser can render it
-                return {
-                    method: 'css',
-                    data: font.family,
-                    previewText: textToUse,
-                };
-            }
+            // CORS blocked - fall through to canvas rendering
         }
     }
 
-    // Fallback: render via canvas (only if font can't be accessed via CSS)
+    // Render via canvas - captures the font as it appears on the page
+    // This is necessary because the sidepanel runs in an isolated context
+    // and cannot access fonts loaded on the page via CSS
     const weightPreviews: Record<string, string[]> = {};
     for (const weight of font.weights) {
-        weightPreviews[weight] = await Promise.all(
-            [textToUse].map(p => renderFontToCanvas(font.family, p, font.isMono, font.isSerif, weight))
-        );
+        const preview = await renderFontToCanvas(font.family, textToUse, font.isMono, font.isSerif, weight);
+        if (preview) {
+            weightPreviews[weight] = [preview];
+        }
     }
 
+    // Return canvas preview if we got any valid renders
+    const firstWeightPreviews = weightPreviews[font.weights[0]] || [];
+    if (firstWeightPreviews.length > 0) {
+        return {
+            method: 'canvas',
+            data: firstWeightPreviews[0],
+            previews: firstWeightPreviews,
+            weightPreviews,
+            previewText: textToUse,
+        };
+    }
+
+    // Last resort: try all weights and use any that worked
+    const anyPreviews = Object.values(weightPreviews).flat();
+    if (anyPreviews.length > 0) {
+        return {
+            method: 'canvas',
+            data: anyPreviews[0],
+            previews: anyPreviews,
+            weightPreviews,
+            previewText: textToUse,
+        };
+    }
+
+    // Final fallback: return canvas method with empty data
+    // The sidepanel will show fallback font, but at least we tried canvas first
     return {
         method: 'canvas',
-        data: weightPreviews[font.weights[0]]?.[0] || '',
-        previews: weightPreviews[font.weights[0]] || [],
-        weightPreviews,
+        data: '',
+        previews: [],
+        weightPreviews: {},
         previewText: textToUse,
     };
 }
@@ -829,43 +905,24 @@ function findFontUrl(family: string): string | null {
     return null;
 }
 
+/**
+ * Render font preview using direct canvas text rendering.
+ * This approach renders text directly to canvas using the page's loaded fonts.
+ * The key is ensuring fonts are loaded before rendering - we try multiple times
+ * and use the actual computed font from a DOM element as validation.
+ */
 async function renderFontToCanvas(family: string, text: string, isMono: boolean, isSerif: boolean, weight: string = '400'): Promise<string> {
-    // Attempt to ensure font is loaded - try multiple approaches
-    try {
-        // Try loading with the exact font family name (quoted)
-        const fontSpecQuoted = `${weight} 16px "${family}"`;
-        await document.fonts.load(fontSpecQuoted);
-        
-        // Also try without quotes (some fonts need this)
-        const fontSpecUnquoted = `${weight} 16px ${family}`;
-        await document.fonts.load(fontSpecUnquoted);
-        
-        // Wait for font to be ready - check multiple times
-        let attempts = 0;
-        const maxAttempts = 10;
-        while (attempts < maxAttempts) {
-            if (document.fonts.check(fontSpecQuoted) || document.fonts.check(fontSpecUnquoted)) {
-                break;
-            }
-            await new Promise(resolve => setTimeout(resolve, 50));
-            attempts++;
-        }
-    } catch (e) {
-        // Font loading failed, continue anyway
-    }
-
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d')!;
+  try {
     const size = 64;
     const maxWidth = 800;
+    const maxLines = 2;
+    const lineHeight = size * 1.2;
 
-    // Build robust font string
+    // Build font stack with appropriate fallback
     const systemKeywords = ['-apple-system', 'BlinkMacSystemFont', 'system-ui', 'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy'];
     const isSystemKey = systemKeywords.includes(family);
-
-    // Non-system keywords must be quoted
-    const familyQuery = isSystemKey ? family : `"${family}"`;
-    // Use appropriate fallback - but the actual font should load, not the fallback
+    const familyQuoted = isSystemKey ? family : `"${family}"`;
+    
     let fallback: string;
     if (isMono) {
         fallback = 'monospace';
@@ -874,94 +931,162 @@ async function renderFontToCanvas(family: string, text: string, isMono: boolean,
     } else {
         fallback = 'sans-serif';
     }
-    const fontString = `${weight} ${size}px ${familyQuery}, ${fallback}`;
+    const fontStack = `${familyQuoted}, ${fallback}`;
+    const canvasFontSpec = `${weight} ${size}px ${fontStack}`;
 
-    ctx.font = fontString;
+    // Try to pre-load the font using document.fonts API
+    // This increases the chance canvas can use it
+    try {
+        await document.fonts.load(`${weight} ${size}px ${familyQuoted}`);
+        await document.fonts.ready;
+    } catch {
+        // Ignore - font might still be usable
+    }
+
+    // Create a test element to verify the font is actually being used
+    // This is more reliable than document.fonts.check()
+    const testEl = document.createElement('span');
+    testEl.style.cssText = `
+        position: absolute;
+        left: -9999px;
+        top: -9999px;
+        font-family: ${fontStack};
+        font-weight: ${weight};
+        font-size: ${size}px;
+        white-space: nowrap;
+        visibility: hidden;
+    `;
+    testEl.textContent = 'mmmmm';
     
-    // Verify the actual font is being used, not just the fallback
-    // Check if the font is actually loaded by testing character rendering
-    if (!isSystemKey && document.fonts && document.fonts.check) {
-        const fontSpec = `${weight} ${size}px "${family}"`;
-        const isFontLoaded = document.fonts.check(fontSpec);
+    if (!document.body) {
+        return '';
+    }
+    
+    document.body.appendChild(testEl);
+    
+    // Force reflow and wait for font to load
+    void testEl.offsetWidth;
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    // Get computed font to verify it's loaded
+    const computed = getComputedStyle(testEl);
+    const computedFamily = computed.fontFamily;
+    
+    // Clean up test element
+    document.body.removeChild(testEl);
+    
+    // Check if the font is actually being used (not falling back to generic)
+    // If computed family doesn't include our font name, the font isn't loaded
+    const fontNameLower = family.toLowerCase();
+    const computedLower = computedFamily.toLowerCase();
+    const fontIsActive = computedLower.includes(fontNameLower) || 
+                         computedLower.includes(family.replace(/['"]/g, '').toLowerCase());
+    
+    if (!fontIsActive && !isSystemKey) {
+        // Font not loaded - wait and try once more
+        await new Promise(resolve => setTimeout(resolve, 200));
         
-        if (!isFontLoaded) {
-            // Font isn't loaded - this means we'll be using the fallback
-            // For monospace fonts, we want to ensure we're using the actual font
-            // Try one more time to load it
-            try {
-                await document.fonts.load(fontSpec);
-                // Re-check after loading
-                if (document.fonts.check(fontSpec)) {
-                    ctx.font = fontString; // Re-apply font after loading
-                }
-            } catch (e) {
-                // Font loading failed - will use fallback
-            }
+        try {
+            await document.fonts.load(`${weight} ${size}px ${familyQuoted}`);
+            await document.fonts.ready;
+        } catch {
+            // Continue anyway - we'll render with fallback
         }
     }
 
+    // Create canvas for rendering
+    const dpr = window.devicePixelRatio || 1;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.ceil(maxWidth * dpr);
+    canvas.height = Math.ceil(lineHeight * maxLines * dpr);
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+        return '';
+    }
+    
+    ctx.scale(dpr, dpr);
+    ctx.font = canvasFontSpec;
+    ctx.fillStyle = '#000000';
+    ctx.textBaseline = 'top';
+    
+    // Apply text rendering hints (canvas doesn't support all CSS properties but these help)
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    // Word wrap the text
     const words = text.split(' ');
     const lines: string[] = [];
-    let currentLine = words[0];
-    const maxLines = 2;
+    let currentLine = words[0] || '';
 
     for (let i = 1; i < words.length; i++) {
-        if (lines.length >= maxLines - 1) {
-            // We're on the last line, check if we need to truncate
-            const testLine = currentLine + " " + words[i];
-            const testWidth = ctx.measureText(testLine).width;
-            if (testWidth >= maxWidth) {
-                // Truncate with ellipsis
-                let truncated = currentLine;
-                while (ctx.measureText(truncated + "...").width >= maxWidth && truncated.length > 0) {
-                    truncated = truncated.slice(0, -1);
-                }
-                lines.push(truncated + "...");
-                break;
-            } else {
-                currentLine = testLine;
-            }
+        const testLine = currentLine + ' ' + words[i];
+        const testWidth = ctx.measureText(testLine).width;
+        
+        if (testWidth > maxWidth && currentLine) {
+            lines.push(currentLine);
+            currentLine = words[i];
+            if (lines.length >= maxLines) break;
         } else {
-            const word = words[i];
-            const width = ctx.measureText(currentLine + " " + word).width;
-            if (width < maxWidth) {
-                currentLine += " " + word;
-            } else {
-                lines.push(currentLine);
-                currentLine = word;
-            }
+            currentLine = testLine;
         }
     }
     
-    // Add the last line if we haven't reached max lines
-    if (lines.length < maxLines) {
+    if (lines.length < maxLines && currentLine) {
+        // Truncate with ellipsis if needed
+        if (ctx.measureText(currentLine).width > maxWidth) {
+            while (ctx.measureText(currentLine + '...').width > maxWidth && currentLine.length > 0) {
+                currentLine = currentLine.slice(0, -1);
+            }
+            currentLine += '...';
+        }
         lines.push(currentLine);
     }
 
-    canvas.width = maxWidth;
-    canvas.height = Math.min(lines.length, maxLines) * size * 1.2 + 20;
-
-    // Reset context properties after resize
-    ctx.font = fontString;
-    ctx.fillStyle = '#000000';
-    ctx.textBaseline = 'top';
-
+    // Render each line
     lines.forEach((line, i) => {
-        ctx.fillText(line, 0, i * size * 1.2 + 10);
+        ctx.fillText(line, 0, i * lineHeight);
     });
 
-    return canvas.toDataURL();
+    // Trim canvas to actual content height
+    const actualHeight = Math.ceil(lines.length * lineHeight);
+    const trimmedCanvas = document.createElement('canvas');
+    trimmedCanvas.width = canvas.width;
+    trimmedCanvas.height = Math.ceil(actualHeight * dpr);
+    
+    const trimCtx = trimmedCanvas.getContext('2d');
+    if (trimCtx) {
+        trimCtx.drawImage(canvas, 0, 0);
+    }
+
+    return trimmedCanvas.toDataURL('image/png');
+    
+  } catch (err) {
+    // Log errors for debugging (except for known system fonts)
+    if (!['system-ui', 'ui-serif', 'ui-sans-serif', 'ui-monospace', '-apple-system', 'BlinkMacSystemFont'].includes(family)) {
+        console.warn('[Tracer] renderFontToCanvas failed for', family, ':', err);
+    }
+    return '';
+  }
 }
 
 const SYSTEM_FONTS = [
-    'sans-serif', 'serif', 'monospace',
+    // Generic font families (CSS keywords)
+    'sans-serif', 'serif', 'monospace', 'cursive', 'fantasy',
+    // System font keywords
+    'system-ui', 'ui-serif', 'ui-sans-serif', 'ui-monospace', 'ui-rounded',
+    // Platform-specific system fonts
+    '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue',
+    'Arial', 'Noto Sans', 'Liberation Sans', 'Helvetica',
+    // Common fallback names
+    'sans', 'initial', 'inherit', 'unset', 'revert',
 ];
 
 function normalizeVariableFontWeights(fontMap: Map<string, FontDetails>) {
     // Standard font weights: 100, 200, 300, 400, 500, 600, 700, 800, 900
     const STANDARD_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
     
-    fontMap.forEach((font, family) => {
+    fontMap.forEach((font, _family) => {
         if (font.weights.length === 0) return;
         
         // Convert all weights to numbers

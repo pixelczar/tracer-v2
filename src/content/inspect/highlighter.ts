@@ -10,22 +10,34 @@ export function enterInspectMode(onSelect: (el: Element) => void) {
     inspectMode = true;
     onSelectCallback = onSelect;
 
+    // Check if document.body is available
+    if (!document.body) {
+        console.error('[Tracer] Cannot enter inspect mode: document.body is not available');
+        return;
+    }
+
     // Detect page brightness for highlight color
     const isDark = isPageDark();
 
-    // Create overlay
-    overlay = document.createElement('div');
-    overlay.id = 'tracer-overlay';
-    overlay.style.cssText = `
-    position: fixed;
-    pointer-events: none;
-    z-index: 999998;
-    border: 1.5px solid ${isDark ? '#eaff00' : '#2684ff'};
-    background: ${isDark ? 'rgba(234, 255, 0, 0.08)' : 'rgba(38, 132, 255, 0.08)'};
-    transition: all 0.08s ease-out;
-    opacity: 0;
-  `;
-    document.body.appendChild(overlay);
+    try {
+        // Create overlay
+        overlay = document.createElement('div');
+        overlay.id = 'tracer-overlay';
+        overlay.style.cssText = `
+        position: fixed;
+        pointer-events: none;
+        z-index: 999998;
+        border: 1.5px solid ${isDark ? '#eaff00' : '#2684ff'};
+        background: ${isDark ? 'rgba(234, 255, 0, 0.08)' : 'rgba(38, 132, 255, 0.08)'};
+        transition: all 0.08s ease-out;
+        opacity: 0;
+      `;
+        document.body.appendChild(overlay);
+    } catch (err) {
+        console.error('[Tracer] Failed to create overlay:', err);
+        inspectMode = false;
+        return;
+    }
 
     // Create corner markers
     const corners = ['tl', 'tr', 'bl', 'br'];
@@ -48,23 +60,33 @@ export function enterInspectMode(onSelect: (el: Element) => void) {
     });
 
     // Create info tooltip
-    infoTooltip = document.createElement('div');
-    infoTooltip.id = 'tracer-tooltip';
-    infoTooltip.style.cssText = `
-    position: fixed;
-    pointer-events: none;
-    z-index: 999999;
-    background: ${isDark ? '#f0f0f0' : '#0a0a0a'};
-    color: ${isDark ? '#0a0a0a' : '#f0f0f0'};
-    padding: 6px 10px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    display: flex;
-    gap: 12px;
-    opacity: 0;
-    transition: opacity 0.1s ease;
-  `;
-    document.body.appendChild(infoTooltip);
+    try {
+        infoTooltip = document.createElement('div');
+        infoTooltip.id = 'tracer-tooltip';
+        infoTooltip.style.cssText = `
+        position: fixed;
+        pointer-events: none;
+        z-index: 999999;
+        background: ${isDark ? '#f0f0f0' : '#0a0a0a'};
+        color: ${isDark ? '#0a0a0a' : '#f0f0f0'};
+        padding: 6px 10px;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 11px;
+        display: flex;
+        gap: 12px;
+        opacity: 0;
+        transition: opacity 0.1s ease;
+      `;
+        document.body.appendChild(infoTooltip);
+    } catch (err) {
+        console.error('[Tracer] Failed to create tooltip:', err);
+        if (overlay) {
+            overlay.remove();
+            overlay = null;
+        }
+        inspectMode = false;
+        return;
+    }
 
     // Set cursor
     document.body.style.cursor = 'crosshair';

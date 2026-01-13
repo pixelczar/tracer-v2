@@ -1,6 +1,7 @@
 import { motion, useMotionValue, useSpring, AnimatePresence } from 'motion/react';
 import { useState, useEffect, useRef } from 'react';
 import type { ColorInfo } from '../../shared/types';
+import { getSettings } from '../../shared/settings';
 
 const sexyEase = [0.16, 1, 0.3, 1] as const;
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -85,13 +86,17 @@ function rgbToOklch(hex: string): string {
   return `oklch(${L.toFixed(2)} ${C.toFixed(2)} ${h.toFixed(2)})`;
 }
 
-function getColorFormats(hex: string): { label: string; value: string }[] {
-  return [
-    { label: 'Hex', value: hex },
-    { label: 'rgba', value: rgbToRgba(hex) },
-    { label: 'oklch', value: rgbToOklch(hex) },
-    { label: 'hsl', value: rgbToHsl(hex) },
+function getColorFormats(hex: string): { label: string; value: string; key: string }[] {
+  const settings = getSettings();
+  const allFormats = [
+    { label: 'Hex', value: hex, key: 'hex' },
+    { label: 'rgba', value: rgbToRgba(hex), key: 'rgba' },
+    { label: 'oklch', value: rgbToOklch(hex), key: 'oklch' },
+    { label: 'hsl', value: rgbToHsl(hex), key: 'hsl' },
   ];
+  
+  // Filter out hidden formats
+  return allFormats.filter(format => !settings.hiddenColorFormats.includes(format.key as any));
 }
 
 interface Props {
@@ -104,34 +109,109 @@ interface Props {
 function ColorTooltip({ 
   hex, 
   visible, 
-  copiedIndex 
+  copiedFormatKey,
+  initialPosition
 }: { 
   hex: string; 
   visible: boolean; 
-  copiedIndex: number | null;
+  copiedFormatKey: string | null;
+  initialPosition?: { x: number; y: number } | null;
 }) {
-  const cursorX = useMotionValue(-100);
-  const cursorY = useMotionValue(-100);
+  const cursorX = useMotionValue(0);
+  const cursorY = useMotionValue(0);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const [, forceUpdate] = useState(0);
+  const [hasInitialPosition, setHasInitialPosition] = useState(false);
+  const [shouldAnimate, setShouldAnimate] = useState(false);
+  const [tooltipWidth, setTooltipWidth] = useState<number | null>(null);
 
   const springConfig = { damping: 25, stiffness: 400 };
-  const x = useSpring(cursorX, springConfig);
-  const y = useSpring(cursorY, springConfig);
+  // Use direct motion values until initial position is set, then switch to spring
+  const xSpring = useSpring(cursorX, springConfig);
+  const ySpring = useSpring(cursorY, springConfig);
+  const x = shouldAnimate ? xSpring : cursorX;
+  const y = shouldAnimate ? ySpring : cursorY;
+
+  // Listen for settings changes to update formats
+  useEffect(() => {
+    const handleSettingsChange = () => {
+      forceUpdate(n => n + 1);
+    };
+    window.addEventListener('tracer:settings-changed', handleSettingsChange);
+    return () => window.removeEventListener('tracer:settings-changed', handleSettingsChange);
+  }, []);
 
   const formats = getColorFormats(hex);
 
+  // Measure the width of all format values to determine tooltip width
   useEffect(() => {
-    if (!visible) return;
+    if (formats.length === 0) return;
 
-    const updatePosition = (clientX: number, clientY: number) => {
+    // Use requestAnimationFrame to ensure fonts are loaded
+    requestAnimationFrame(() => {
+      // Create a temporary span to measure text width
+      const measureElement = document.createElement('span');
+      measureElement.style.position = 'absolute';
+      measureElement.style.visibility = 'hidden';
+      measureElement.style.whiteSpace = 'nowrap';
+      measureElement.style.display = 'inline-block';
+      measureElement.style.fontSize = '10px';
+      measureElement.style.fontFamily = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
+      measureElement.style.padding = '0';
+      measureElement.style.margin = '0';
+      measureElement.style.top = '-9999px';
+      measureElement.style.left = '-9999px';
+      document.body.appendChild(measureElement);
+
+      let maxContentWidth = 0;
+
+      formats.forEach((format) => {
+        // Measure the actual value with proper styling
+        measureElement.textContent = format.value;
+        measureElement.style.textTransform = format.key === 'hex' ? 'uppercase' : 'none';
+        measureElement.style.letterSpacing = format.key === 'hex' ? '0.05em' : 'normal';
+        
+        // Use offsetWidth for more accurate measurement
+        const width = measureElement.offsetWidth;
+        maxContentWidth = Math.max(maxContentWidth, width);
+      });
+
+      // Add padding (px-3 = 12px on each side = 24px total) + buffer for subpixel rendering
+      setTooltipWidth(Math.ceil(maxContentWidth) + 24 + 2);
+
+      document.body.removeChild(measureElement);
+    });
+  }, [formats, hex]);
+
+  useEffect(() => {
+    if (!visible) {
+      setHasInitialPosition(false);
+      setShouldAnimate(false);
+      return;
+    }
+
+    const updatePosition = (clientX: number, clientY: number, immediate = false) => {
       // Use requestAnimationFrame to ensure tooltip is rendered
       requestAnimationFrame(() => {
-        if (!tooltipRef.current) {
-          // Fallback if ref not ready
-          cursorX.set(clientX + 12);
-          cursorY.set(clientY + 12);
-          return;
-        }
+          if (!tooltipRef.current) {
+            // Fallback if ref not ready
+            if (immediate) {
+              const posX = clientX + 12;
+              const posY = clientY + 12;
+              cursorX.jump(posX);
+              cursorY.jump(posY);
+              // Sync spring values to current position before enabling spring
+              xSpring.jump(posX);
+              ySpring.jump(posY);
+              setHasInitialPosition(true);
+              // Enable spring animation after initial position is set
+              setTimeout(() => setShouldAnimate(true), 50);
+            } else {
+              cursorX.set(clientX + 12);
+              cursorY.set(clientY + 12);
+            }
+            return;
+          }
         
         const tooltipRect = tooltipRef.current.getBoundingClientRect();
         const viewportWidth = window.innerWidth;
@@ -163,13 +243,38 @@ function ColorTooltip({
           adjustedY = offsetY;
         }
         
-        cursorX.set(adjustedX);
-        cursorY.set(adjustedY);
+          if (immediate) {
+            // Set position immediately without spring for initial positioning
+            cursorX.jump(adjustedX);
+            cursorY.jump(adjustedY);
+            // Sync spring values to current position before enabling spring
+            xSpring.jump(adjustedX);
+            ySpring.jump(adjustedY);
+            setHasInitialPosition(true);
+            // Enable spring animation after initial position is set
+            setTimeout(() => setShouldAnimate(true), 50);
+          } else {
+            cursorX.set(adjustedX);
+            cursorY.set(adjustedY);
+          }
       });
     };
-
+    
+    // Delay before positioning to avoid (0,0) flash
+    // This gives the tooltip time to render and calculate its position
+    const delayTimeout = setTimeout(() => {
+      // Set initial position immediately if we have it
+      if (initialPosition && !hasInitialPosition) {
+        updatePosition(initialPosition.x, initialPosition.y, true);
+      }
+    }, 150);
+    
     const move = (e: MouseEvent) => {
-      updatePosition(e.clientX, e.clientY);
+      if (!hasInitialPosition) {
+        updatePosition(e.clientX, e.clientY, true);
+      } else {
+        updatePosition(e.clientX, e.clientY);
+      }
     };
     
     window.addEventListener('mousemove', move);
@@ -189,29 +294,35 @@ function ColorTooltip({
     window.addEventListener('scroll', handleResize, true);
     
     return () => {
+      clearTimeout(delayTimeout);
       window.removeEventListener('mousemove', move);
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('scroll', handleResize, true);
     };
-  }, [cursorX, cursorY, visible, hex, copiedIndex]);
+  }, [cursorX, cursorY, visible, hex, copiedFormatKey, hasInitialPosition, initialPosition]);
 
   return (
     <AnimatePresence>
       {visible && (
         <motion.div
-          ref={tooltipRef}
-          className="fixed top-0 left-0 pointer-events-none z-[9999] bg-[#0a0a0a] text-muted px-3 py-2 text-2xs font-mono shadow-lg border border-white/5 rounded-lg"
-          style={{ x, y, minWidth: '180px' }}
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ duration: 0.1, ease }}
-        >
-          {/* Format list */}
-          <div className="flex flex-col gap-1">
-            {formats.map((format, index) => {
-              const isCopied = copiedIndex === index;
-              const isHex = index === 0;
+            ref={tooltipRef}
+            className="fixed top-0 left-0 pointer-events-none z-[9999] bg-[#0a0a0a] text-muted px-3 py-2 text-2xs font-mono shadow-lg border border-white/5 rounded-lg"
+            style={{ 
+              x, 
+              y, 
+              width: tooltipWidth ? `${tooltipWidth}px` : 'auto',
+              minWidth: tooltipWidth ? `${tooltipWidth}px` : '180px'
+            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: hasInitialPosition ? 1 : 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15, ease: sexyEase }}
+          >
+            {/* Format list */}
+            <div className="flex flex-col gap-1">
+            {formats.map((format) => {
+              const isCopied = copiedFormatKey === format.key;
+              const isHex = format.key === 'hex';
               
               return (
                 <div 
@@ -226,7 +337,7 @@ function ColorTooltip({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -2 }}
                         transition={{ duration: 0.3, ease: sexyEase }}
-                        className="inline-block min-w-[150px]"
+                        className="inline-block"
                       >
                         COPIED
                       </motion.span>
@@ -237,7 +348,7 @@ function ColorTooltip({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -2 }}
                         transition={{ duration: 0.3, ease: sexyEase }}
-                        className="inline-block min-w-[150px]"
+                        className="inline-block"
                       >
                         {format.value}
                       </motion.span>
@@ -255,22 +366,56 @@ function ColorTooltip({
 
 export function ColorSection({ colors, maxColors = 8, maxLarge = 2, theme = 'dark' }: Props) {
   const [hoveredHex, setHoveredHex] = useState<string | null>(null);
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-  const [formatIndexMap, setFormatIndexMap] = useState<Map<string, number>>(new Map());
+  const [copiedFormatKey, setCopiedFormatKey] = useState<string | null>(null);
+  const [formatKeyMap, setFormatKeyMap] = useState<Map<string, string>>(new Map());
   const [selectorPosition, setSelectorPosition] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const swatchRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Listen for settings changes to reset format selections if needed
+  useEffect(() => {
+    const handleSettingsChange = () => {
+      // Reset format selections for colors where the selected format is now hidden
+      setFormatKeyMap(prev => {
+        const updated = new Map(prev);
+        prev.forEach((formatKey, hex) => {
+          const formats = getColorFormats(hex);
+          const formatExists = formats.some(f => f.key === formatKey);
+          if (!formatExists && formats.length > 0) {
+            // Reset to first available format
+            updated.set(hex, formats[0].key);
+          } else if (!formatExists) {
+            // No formats available, remove entry
+            updated.delete(hex);
+          }
+        });
+        return updated;
+      });
+    };
+    window.addEventListener('tracer:settings-changed', handleSettingsChange);
+    return () => window.removeEventListener('tracer:settings-changed', handleSettingsChange);
+  }, []);
   
   const sorted = [...colors]
     .sort((a, b) => b.weight - a.weight)
     .slice(0, maxColors);
 
   const handleCopy = (hex: string) => {
-    // Get current format index for this color (default to 0 if not set)
-    const currentIndex = formatIndexMap.get(hex) ?? 0;
     const formats = getColorFormats(hex);
-    const formatToCopy = formats[currentIndex];
+    if (formats.length === 0) return;
+    
+    // Get current format key for this color (default to first format if not set)
+    const currentFormatKey = formatKeyMap.get(hex) ?? formats[0].key;
+    
+    // Find the current format or use the first one
+    let currentFormatIndex = formats.findIndex(f => f.key === currentFormatKey);
+    if (currentFormatIndex === -1) {
+      currentFormatIndex = 0;
+    }
+    
+    const formatToCopy = formats[currentFormatIndex];
     
     navigator.clipboard.writeText(formatToCopy.value);
     
@@ -280,16 +425,17 @@ export function ColorSection({ colors, maxColors = 8, maxLarge = 2, theme = 'dar
     }
     
     // Set copied state and ensure hex is hovered for tooltip display
-    setCopiedIndex(currentIndex);
+    setCopiedFormatKey(formatToCopy.key);
     setHoveredHex(hex);
     
-    // Cycle to next format index for next click
-    const nextIndex = (currentIndex + 1) % formats.length;
-    setFormatIndexMap(new Map(formatIndexMap.set(hex, nextIndex)));
+    // Cycle to next format for next click
+    const nextIndex = (currentFormatIndex + 1) % formats.length;
+    const nextFormatKey = formats[nextIndex].key;
+    setFormatKeyMap(new Map(formatKeyMap.set(hex, nextFormatKey)));
     
     // Reset after very short delay - show "Copied" briefly then return to value
     copyTimeoutRef.current = setTimeout(() => {
-      setCopiedIndex(null);
+      setCopiedFormatKey(null);
       // Don't clear hoveredHex here - let mouse leave handle it
     }, 800);
   };
@@ -337,8 +483,9 @@ export function ColorSection({ colors, maxColors = 8, maxLarge = 2, theme = 'dar
     <>
       <ColorTooltip 
         hex={hoveredHex || ''} 
-        visible={hoveredHex !== null || copiedIndex !== null} 
-        copiedIndex={copiedIndex}
+        visible={hoveredHex !== null || copiedFormatKey !== null} 
+        copiedFormatKey={copiedFormatKey}
+        initialPosition={cursorPosition}
       />
       <div ref={containerRef} className="relative">
         <motion.div
@@ -373,19 +520,24 @@ export function ColorSection({ colors, maxColors = 8, maxLarge = 2, theme = 'dar
                 }
               }}
               onClick={() => handleCopy(color.hex)}
-              onMouseEnter={() => {
+              onMouseEnter={(e) => {
                 // Only update hoveredHex if not showing copy feedback
-                if (copiedIndex === null) {
+                if (copiedFormatKey === null) {
                   setHoveredHex(color.hex);
-                  // Reset format index when hovering a different color
-                  if (!formatIndexMap.has(color.hex)) {
-                    setFormatIndexMap(new Map(formatIndexMap.set(color.hex, 0)));
+                  // Capture cursor position for tooltip
+                  setCursorPosition({ x: e.clientX, y: e.clientY });
+                  // Reset format key when hovering a different color if not set
+                  if (!formatKeyMap.has(color.hex)) {
+                    const formats = getColorFormats(color.hex);
+                    if (formats.length > 0) {
+                      setFormatKeyMap(new Map(formatKeyMap.set(color.hex, formats[0].key)));
+                    }
                   }
                 }
               }}
               onMouseLeave={() => {
                 // Only clear hoveredHex if not showing copy feedback
-                if (copiedIndex === null) {
+                if (copiedFormatKey === null) {
                   setHoveredHex(null);
                 }
               }}
@@ -397,7 +549,6 @@ export function ColorSection({ colors, maxColors = 8, maxLarge = 2, theme = 'dar
               className={`
                 relative cursor-pointer rounded-smX border border-white/10
                 ${shouldBeLarge ? 'col-span-2 row-span-2' : ''}
-                ${color.weight === 2 && !shouldBeLarge ? 'col-span-2' : ''}
               `}
               style={{ backgroundColor: color.hex }}
             >

@@ -1,10 +1,163 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { IconDots, IconClose, IconSun, IconMoon, IconChevronDown } from './Icons';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { IconClose, IconSun, IconMoon, IconChevronDown, IconGrip } from './Icons';
 import { getSettings, updateSettings, type Settings } from '../../shared/settings';
-import { TECH_CATEGORY_META, type TechCategory } from '../../shared/types';
+import { TECH_CATEGORY_META, type TechCategory, type ColorFormat } from '../../shared/types';
+import favicon from '../../assets/icons/favicon_256.png';
 
 const sexyEase = [0.16, 1, 0.3, 1] as const;
+
+// Draggable category group item using @dnd-kit
+function DraggableCategoryGroup({
+    groupName,
+    id,
+    checkState,
+    isExpanded,
+    categoriesByGroup,
+    settings,
+    onToggleGroup,
+    onToggleCategory,
+    onToggleExpand,
+}: {
+    groupName: string;
+    id: string;
+    checkState: 'checked' | 'unchecked' | 'indeterminate';
+    isExpanded: boolean;
+    categoriesByGroup: Record<string, { key: TechCategory; label: string }[]>;
+    settings: Settings;
+    onToggleGroup: () => void;
+    onToggleCategory: (category: TechCategory) => void;
+    onToggleExpand: () => void;
+}) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <motion.div
+            ref={setNodeRef}
+            style={style}
+            animate={{
+                opacity: isDragging ? 1 : 1,
+            }}
+            transition={{
+                opacity: { duration: 0.2, ease: sexyEase },
+            }}
+            className="group relative"
+        >
+            <div className="flex items-center gap-2 px-1 py-1">
+                {/* Drag handle */}
+                <div
+                    {...attributes}
+                    {...listeners}
+                    className={`flex-shrink-0 w-4 h-4 flex items-center justify-center cursor-grab active:cursor-grabbing text-muted touch-none transition-opacity ${isDragging ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                >
+                    <motion.div
+                        animate={{
+                            scale: isDragging ? 1.1 : 1,
+                        }}
+                        transition={{
+                            duration: 0.2,
+                            ease: sexyEase,
+                        }}
+                    >
+                        <IconGrip className="w-3 h-3" />
+                    </motion.div>
+                </div>
+                
+                <label className="flex items-center gap-2 flex-1 cursor-pointer rounded">
+                    <IndeterminateCheckbox
+                        checked={checkState === 'checked'}
+                        indeterminate={checkState === 'indeterminate'}
+                        onChange={onToggleGroup}
+                    />
+                    <motion.span 
+                        className={`text-xs font-medium transition-colors duration-200 ${isDragging ? 'text-white' : 'text-muted'}`}
+                    >
+                        {groupName}
+                    </motion.span>
+                </label>
+                <button
+                    onClick={onToggleExpand}
+                    className={`w-5 h-5 flex items-center justify-center rounded text-muted hover:text-fg transition-colors ${isExpanded ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
+                    aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                >
+                    <motion.div
+                        animate={{ rotate: isExpanded ? 180 : 0 }}
+                        transition={{ duration: 0.2, ease: sexyEase }}
+                    >
+                        <IconChevronDown className="w-3 h-3" />
+                    </motion.div>
+                </button>
+            </div>
+            <AnimatePresence>
+                {isExpanded && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2, ease: sexyEase }}
+                        className="overflow-hidden"
+                    >
+                        <div className="grid grid-cols-2 gap-x-2 gap-y-1 ml-10 mt-1 pb-1">
+                            {categoriesByGroup[groupName].map(({ key, label }) => {
+                                const isHidden = settings.hiddenCategories.includes(key);
+                                return (
+                                    <label
+                                        key={key}
+                                        className="flex items-center gap-1.5 px-1 py-0.5 text-xs text-muted cursor-pointer hover:text-fg transition-colors"
+                                    >
+                                        <div className="relative">
+                                            <input
+                                                type="checkbox"
+                                                checked={!isHidden}
+                                                onChange={() => onToggleCategory(key)}
+                                                className="sr-only"
+                                            />
+                                            <div className={`
+                                                w-3.5 h-3.5 rounded border transition-all flex items-center justify-center
+                                                ${!isHidden 
+                                                    ? 'bg-accent/10 border-transparent' 
+                                                    : 'bg-transparent border-faint'
+                                                }
+                                            `}>
+                                                {!isHidden && (
+                                                    <svg 
+                                                        className="w-full h-full text-accent" 
+                                                        fill="none" 
+                                                        viewBox="0 0 24 24" 
+                                                        stroke="currentColor" 
+                                                        strokeWidth="2.5"
+                                                    >
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <span>{label}</span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </motion.div>
+    );
+}
 
 // Component for checkbox with indeterminate state support
 function IndeterminateCheckbox({ 
@@ -202,8 +355,50 @@ export function SettingsPopover({ theme, onThemeChange, onRescan, onOpenChange }
         return acc;
     }, {} as Record<string, { key: TechCategory; label: string }[]>);
 
-    const groupOrder = ['Frontend', 'Styling', 'Graphics', 'Content', 'Analytics', 'Marketing', 'Commerce', 'Infra', 'Security', 'Developer', 'Misc', 'AI'];
-    const sortedGroups = groupOrder.filter(g => categoriesByGroup[g]);
+    const defaultGroupOrder = ['Frontend', 'Styling', 'Graphics', 'Content', 'Analytics', 'Marketing', 'Commerce', 'Infra', 'Security', 'Developer', 'Misc', 'AI'];
+    const availableGroups = defaultGroupOrder.filter(g => categoriesByGroup[g]);
+    
+    // Use custom order from settings or default order
+    const customOrder = settings.categoryGroupOrder || [];
+    const sortedGroups = customOrder.length > 0
+        ? [...customOrder.filter(g => availableGroups.includes(g)), ...availableGroups.filter(g => !customOrder.includes(g))]
+        : availableGroups;
+
+    // Color format options
+    const colorFormats: { key: ColorFormat; label: string }[] = [
+        { key: 'hex', label: 'Hex' },
+        { key: 'rgba', label: 'rgba' },
+        { key: 'oklch', label: 'oklch' },
+        { key: 'hsl', label: 'hsl' },
+    ];
+
+    const toggleColorFormat = (format: ColorFormat) => {
+        const newHidden = settings.hiddenColorFormats.includes(format)
+            ? settings.hiddenColorFormats.filter(f => f !== format)
+            : [...settings.hiddenColorFormats, format];
+        updateSetting('hiddenColorFormats', newHidden);
+    };
+
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (over && active.id !== over.id) {
+            const oldIndex = sortedGroups.indexOf(active.id as string);
+            const newIndex = sortedGroups.indexOf(over.id as string);
+
+            if (oldIndex !== -1 && newIndex !== -1) {
+                const newOrder = arrayMove(sortedGroups, oldIndex, newIndex);
+                updateSetting('categoryGroupOrder', newOrder);
+            }
+        }
+    };
 
     return (
         <div className="relative">
@@ -211,13 +406,17 @@ export function SettingsPopover({ theme, onThemeChange, onRescan, onOpenChange }
                 ref={buttonRef}
                 onClick={() => setIsOpen(!isOpen)}
                 className="
-                    w-8 h-8 flex items-center justify-center rounded-md flex-shrink-0
+                    w-8 h-8 flex items-center justify-center rounded-lg flex-shrink-0
                     text-fg opacity-40 transition-all
                     border border-transparent hover:opacity-100
                 "
                 title="Settings"
             >
-                <IconDots />
+                <img 
+                    src={favicon} 
+                    alt="Tracer" 
+                    className={`w-5 h-5 ${theme === 'light' ? 'invert' : ''}`}
+                />
             </button>
 
             <AnimatePresence>
@@ -228,7 +427,7 @@ export function SettingsPopover({ theme, onThemeChange, onRescan, onOpenChange }
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 8, scale: 0.95 }}
                         transition={{ duration: 0.2, ease: sexyEase }}
-                        className="absolute right-[-4px] w-80 top-0 bg-bg border border-faint rounded-lg shadow-xl z-[100] overflow-hidden flex flex-col"
+                        className="absolute right-[-4px] w-80 top-0 bg-bg border border-subtle rounded-lg shadow-xl z-[100] overflow-hidden flex flex-col"
                         style={{ 
                             maxHeight: 'calc(100vh - 80px)',
                             minHeight: '500px'
@@ -265,8 +464,8 @@ export function SettingsPopover({ theme, onThemeChange, onRescan, onOpenChange }
                                             className={`
                                                 px-2 py-1 rounded-md text-xs font-medium transition-all
                                                 ${theme === 'light'
-                                                    ? 'bg-accent/10 text-accent'
-                                                    : 'bg-subtle'
+                                                    ? 'bg-accent/10 text-accent border border-accent/30'
+                                                    : 'bg-subtle text-muted'
                                                 }
                                             `}
                                             title="Light"
@@ -284,8 +483,8 @@ export function SettingsPopover({ theme, onThemeChange, onRescan, onOpenChange }
                                             className={`
                                                 px-2 py-1 rounded-md text-xs font-medium transition-all
                                                 ${theme === 'dark'
-                                                    ? 'bg-accent/20 text-accent'
-                                                    : 'bg-subtle'
+                                                    ? 'bg-[#1a1a1a] text-accent border border-accent/30'
+                                                    : 'bg-subtle text-muted'
                                                 }
                                             `}
                                             title="Dark"
@@ -356,89 +555,85 @@ export function SettingsPopover({ theme, onThemeChange, onRescan, onOpenChange }
                             {/* Category Filters Section */}
                             <div className="px-4 py-3">
                                 <label className="text-xs font-medium text-fg block mb-1">Tech Categories</label>
-                                <div className="mt-4">
-                                    {sortedGroups.map((groupName) => {
-                                        const checkState = getGroupCheckState(groupName);
-                                        const isExpanded = expandedGroups.has(groupName);
-                                        return (
-                                            <div key={groupName} className="group">
-                                                <div className="flex items-center gap-2 px-1 py-1">
-                                                    <label className="flex items-center gap-2 flex cursor-pointer rounded">
-                                                        <IndeterminateCheckbox
-                                                            checked={checkState === 'checked'}
-                                                            indeterminate={checkState === 'indeterminate'}
-                                                            onChange={() => toggleGroupCategories(groupName)}
+                                <div className="mt-4 space-y-0.5">
+                                    <DndContext
+                                        sensors={sensors}
+                                        collisionDetection={closestCenter}
+                                        onDragEnd={handleDragEnd}
+                                    >
+                                        <SortableContext
+                                            items={sortedGroups}
+                                            strategy={verticalListSortingStrategy}
+                                        >
+                                            <AnimatePresence mode="popLayout">
+                                                {sortedGroups.map((groupName) => {
+                                                    const checkState = getGroupCheckState(groupName);
+                                                    const isExpanded = expandedGroups.has(groupName);
+                                                    return (
+                                                        <DraggableCategoryGroup
+                                                            key={groupName}
+                                                            id={groupName}
+                                                            groupName={groupName}
+                                                            checkState={checkState}
+                                                            isExpanded={isExpanded}
+                                                            categoriesByGroup={categoriesByGroup}
+                                                            settings={settings}
+                                                            onToggleGroup={() => toggleGroupCategories(groupName)}
+                                                            onToggleCategory={toggleCategory}
+                                                            onToggleExpand={() => toggleGroupExpanded(groupName)}
                                                         />
-                                                        <span className="text-xs font-medium text-muted">{groupName}</span>
-                                                    </label>
-                                                    <button
-                                                        onClick={() => toggleGroupExpanded(groupName)}
-                                                        className="w-5 h-5 flex items-center justify-center rounded text-muted hover:text-fg transition-colors opacity-0 group-hover:opacity-100"
-                                                        aria-label={isExpanded ? 'Collapse' : 'Expand'}
-                                                    >
-                                                        <motion.div
-                                                            animate={{ rotate: isExpanded ? 180 : 0 }}
-                                                            transition={{ duration: 0.2, ease: sexyEase }}
-                                                        >
-                                                            <IconChevronDown className="w-3 h-3" />
-                                                        </motion.div>
-                                                    </button>
-                                                </div>
-                                                <AnimatePresence>
-                                                    {isExpanded && (
-                                                        <motion.div
-                                                            initial={{ height: 0, opacity: 0 }}
-                                                            animate={{ height: 'auto', opacity: 1 }}
-                                                            exit={{ height: 0, opacity: 0 }}
-                                                            transition={{ duration: 0.2, ease: sexyEase }}
-                                                            className="overflow-hidden"
-                                                        >
-                                                            <div className="grid grid-cols-2 gap-x-2 gap-y-1 ml-6 mt-1 pb-1">
-                                                                {categoriesByGroup[groupName].map(({ key, label }) => {
-                                                                    const isHidden = settings.hiddenCategories.includes(key);
-                                                                    return (
-                                                                        <label
-                                                                            key={key}
-                                                                            className="flex items-center gap-1.5 px-1 py-0.5 text-xs text-muted cursor-pointer hover:text-fg transition-colors"
-                                                                        >
-                                                                            <div className="relative">
-                                                                                <input
-                                                                                    type="checkbox"
-                                                                                    checked={!isHidden}
-                                                                                    onChange={() => toggleCategory(key)}
-                                                                                    className="sr-only"
-                                                                                />
-                                                                                <div className={`
-                                                                                    w-3.5 h-3.5 rounded border transition-all flex items-center justify-center
-                                                                                    ${!isHidden 
-                                                                                        ? 'bg-accent/10 border-transparent' 
-                                                                                        : 'bg-transparent border-faint'
-                                                                                    }
-                                                                                `}>
-                                                                                    {!isHidden && (
-                                                                                        <svg 
-                                                                                            className="w-full h-full text-accent" 
-                                                                                            fill="none" 
-                                                                                            viewBox="0 0 24 24" 
-                                                                                            stroke="currentColor" 
-                                                                                            strokeWidth="2.5"
-                                                                                        >
-                                                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                                                                        </svg>
-                                                                                    )}
-                                                                                </div>
-                                                                            </div>
-                                                                            <span>{label}</span>
-                                                                        </label>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        </motion.div>
-                                                    )}
-                                                </AnimatePresence>
-                                            </div>
-                                        );
-                                    })}
+                                                    );
+                                                })}
+                                            </AnimatePresence>
+                                        </SortableContext>
+                                    </DndContext>
+                                </div>
+                            </div>
+
+                            {/* Color Formats Section */}
+                            <div className="px-4 py-3 border-t border-faint">
+                                <label className="text-xs font-medium text-fg block mb-1">Color Formats</label>
+                                <div className="mt-4">
+                                    <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+                                        {colorFormats.map(({ key, label }) => {
+                                            const isHidden = settings.hiddenColorFormats.includes(key);
+                                            return (
+                                                <label
+                                                    key={key}
+                                                    className="flex items-center gap-1.5 px-1 py-0.5 text-xs text-muted cursor-pointer hover:text-fg transition-colors"
+                                                >
+                                                    <div className="relative">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={!isHidden}
+                                                            onChange={() => toggleColorFormat(key)}
+                                                            className="sr-only"
+                                                        />
+                                                        <div className={`
+                                                            w-3.5 h-3.5 rounded border transition-all flex items-center justify-center
+                                                            ${!isHidden 
+                                                                ? 'bg-accent/10 border-transparent' 
+                                                                : 'bg-transparent border-faint'
+                                                            }
+                                                        `}>
+                                                            {!isHidden && (
+                                                                <svg 
+                                                                    className="w-full h-full text-accent" 
+                                                                    fill="none" 
+                                                                    viewBox="0 0 24 24" 
+                                                                    stroke="currentColor" 
+                                                                    strokeWidth="2.5"
+                                                                >
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                                </svg>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <span>{label}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             </div>
                             </div>

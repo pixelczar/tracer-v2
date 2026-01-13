@@ -145,41 +145,30 @@ function FontItem({ font, sessionPangram }: { font: FontInfo; sessionPangram: st
                         }}
                         className="w-full"
                     >
-                        {font.preview.method === 'canvas' ? (
+                        {/* Canvas method - show captured image */}
+                        {font.preview.method === 'canvas' && specimenSrc && (
                             <img
                                 src={specimenSrc}
                                 alt={font.family}
                                 className="max-w-[300px] h-auto dark:invert origin-left object-contain"
                             />
-                        ) : (
+                        )}
+                        
+                        {/* Canvas method failed - show placeholder, NOT wrong font */}
+                        {font.preview.method === 'canvas' && !specimenSrc && (
+                            <p className="text-2xl tracking-tight max-w-[300px] text-muted-foreground/50 italic">
+                                Preview unavailable
+                            </p>
+                        )}
+                        
+                        {/* Google Fonts - load via link tag */}
+                        {font.preview.method === 'google' && (
                             <>
-                                {font.preview.method === 'google' && (
-                                    <link href={font.preview.data} rel="stylesheet" />
-                                )}
-                                {font.preview.method === 'datauri' && (
-                                    <style>{`@font-face { font-family: '${font.family}-preview'; src: url('${font.preview.data}'); }`}</style>
-                                )}
+                                <link href={font.preview.data} rel="stylesheet" />
                                 <p
                                     className="text-2xl tracking-tight max-w-[300px]"
                                     style={{
-                                        fontFamily: (() => {
-                                            let fallback: string;
-                                            if (font.isMono) {
-                                                fallback = 'monospace';
-                                            } else if (font.isSerif) {
-                                                fallback = 'serif';
-                                            } else {
-                                                fallback = 'sans-serif';
-                                            }
-                                            
-                                            if (font.preview.method === 'datauri') {
-                                                return `'${font.family}-preview', ${fallback}`;
-                                            } else if (font.preview.method === 'css') {
-                                                return `'${font.preview.data}', ${fallback}`;
-                                            } else {
-                                                return `'${font.family}', ${fallback}`;
-                                            }
-                                        })(),
+                                        fontFamily: `'${font.family}', ${font.isMono ? 'monospace' : font.isSerif ? 'serif' : 'sans-serif'}`,
                                         fontWeight: activeWeight,
                                         display: '-webkit-box',
                                         WebkitLineClamp: 2,
@@ -188,12 +177,49 @@ function FontItem({ font, sessionPangram }: { font: FontInfo; sessionPangram: st
                                         textOverflow: 'ellipsis',
                                         wordBreak: 'break-word',
                                         whiteSpace: 'normal',
-                                        lineHeight: '1.2'
+                                        lineHeight: '1.2',
+                                        WebkitFontSmoothing: 'antialiased',
+                                        MozOsxFontSmoothing: 'grayscale',
+                                        textRendering: 'optimizeLegibility'
                                     }}
                                 >
                                     {sessionPangram}
                                 </p>
                             </>
+                        )}
+                        
+                        {/* Data URI - embed font via @font-face */}
+                        {font.preview.method === 'datauri' && (
+                            <>
+                                <style>{`@font-face { font-family: '${font.family}-preview'; src: url('${font.preview.data}'); }`}</style>
+                                <p
+                                    className="text-2xl tracking-tight max-w-[300px]"
+                                    style={{
+                                        fontFamily: `'${font.family}-preview', ${font.isMono ? 'monospace' : font.isSerif ? 'serif' : 'sans-serif'}`,
+                                        fontWeight: activeWeight,
+                                        display: '-webkit-box',
+                                        WebkitLineClamp: 2,
+                                        WebkitBoxOrient: 'vertical',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        wordBreak: 'break-word',
+                                        whiteSpace: 'normal',
+                                        lineHeight: '1.2',
+                                        WebkitFontSmoothing: 'antialiased',
+                                        MozOsxFontSmoothing: 'grayscale',
+                                        textRendering: 'optimizeLegibility'
+                                    }}
+                                >
+                                    {sessionPangram}
+                                </p>
+                            </>
+                        )}
+                        
+                        {/* CSS method - fallback, show placeholder since we can't render page fonts */}
+                        {font.preview.method === 'css' && (
+                            <p className="text-2xl tracking-tight max-w-[300px] text-muted-foreground/50 italic">
+                                Preview unavailable
+                            </p>
                         )}
                     </motion.div>
                 </AnimatePresence>

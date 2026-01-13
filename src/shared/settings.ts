@@ -1,10 +1,12 @@
-import type { TechCategory } from './types';
+import type { TechCategory, ColorFormat } from './types';
 
 export interface Settings {
     theme: 'light' | 'dark';
     deepScan: boolean;
     hiddenCategories: TechCategory[]; // Array of category keys to hide (empty = show all)
+    hiddenColorFormats: ColorFormat[]; // Array of color format keys to hide (empty = show all)
     fontPreviewSource: 'pangram' | 'og-description' | 'page-content';
+    categoryGroupOrder?: string[]; // Custom order for category groups (empty = use default)
 }
 
 const SETTINGS_KEY = 'tracer_settings';
@@ -12,6 +14,7 @@ const DEFAULT_SETTINGS: Settings = {
     theme: 'dark',
     deepScan: false,
     hiddenCategories: [],
+    hiddenColorFormats: [],
     fontPreviewSource: 'pangram',
 };
 

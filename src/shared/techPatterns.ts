@@ -58,7 +58,39 @@ export const TECH_PATTERNS: TechPattern[] = [
     { name: 'SolidStart', category: 'web-framework', url: 'https://start.solidjs.com', isSignal: true, patterns: { globals: ['_$HY'], scripts: [/solid-start/] } },
 
     // UI Frameworks
-    { name: 'Radix UI', category: 'ui-framework', url: 'https://radix-ui.com', isSignal: true, patterns: { dom: ['[data-radix-collection-item]', '[data-radix-popper-content-wrapper]'] } },
+    { 
+        name: 'Radix UI', 
+        category: 'ui-framework', 
+        url: 'https://radix-ui.com', 
+        isSignal: true, 
+        patterns: { 
+            // Radix UI uses data-radix-* attributes extensively
+            dom: [
+                '[data-radix-collection-item]', 
+                '[data-radix-popper-content-wrapper]',
+                '[data-radix-portal]',
+                '[data-radix-dialog-content]',
+                '[data-radix-dropdown-menu-content]',
+                '[data-radix-select-content]',
+                '[data-radix-popover-content]',
+                '[data-radix-tooltip-content]',
+                '[data-radix-accordion-item]',
+                '[data-radix-tabs-list]',
+                '[data-radix-tabs-content]',
+                '[data-radix-scroll-area]',
+                '[data-radix-slider-root]',
+                '[data-radix-checkbox-root]',
+                '[data-radix-radio-group]',
+                '[data-radix-switch-root]',
+                // More generic pattern for any data-radix-* attribute
+                '[data-radix-]',
+            ],
+            // Check for Radix UI in scripts
+            scripts: [/@radix-ui/i, /radix-ui/i],
+            globals: ['RadixUI'],
+        },
+        confidence: 85,
+    },
     { name: 'Shadcn UI', category: 'ui-framework', url: 'https://ui.shadcn.com', isSignal: true, patterns: {} },
     { name: 'Material UI', category: 'ui-framework', url: 'https://mui.com', isSignal: false, patterns: { globals: ['MaterialUI'], dom: ['[class*="Mui"]'] } },
     { name: 'Chakra UI', category: 'ui-framework', url: 'https://chakra-ui.com', isSignal: true, patterns: { dom: ['[class*="chakra-"]'] } },
@@ -86,7 +118,27 @@ export const TECH_PATTERNS: TechPattern[] = [
     { name: 'lit-html', category: 'js-library', url: 'https://lit.dev', isSignal: false, patterns: { globals: ['__lit-html', 'litHtml'] } },
 
     // ==================== STYLING ====================
-    { name: 'Tailwind CSS', category: 'css-framework', url: 'https://tailwindcss.com', isSignal: false, patterns: { dom: ['html.tw-dark', '[class*="tw-"]'], globals: ['tailwind'] } },
+    { 
+        name: 'Tailwind CSS', 
+        category: 'css-framework', 
+        url: 'https://tailwindcss.com', 
+        isSignal: false, 
+        patterns: { 
+            // Tailwind-specific patterns
+            dom: [
+                'html.tw-dark', // Tailwind dark mode indicator
+                '[class*="tw-"]', // Tailwind-specific prefix
+            ],
+            globals: ['tailwind'],
+            // Check for Tailwind directives in CSS (most reliable)
+            css: [/@tailwind\s+(base|components|utilities)/i, /tailwindcss/i],
+            // Check for Tailwind config in scripts
+            scripts: [/tailwind\.config/i, /tailwindcss/i],
+            // Check HTML for Tailwind-specific patterns
+            html: [/tailwindcss/i, /@tailwind/i],
+        },
+        confidence: 90, // Higher confidence for CSS/script patterns, lower for DOM
+    },
     { name: 'Bootstrap', category: 'css-framework', url: 'https://getbootstrap.com', isSignal: false, patterns: { globals: ['bootstrap'], dom: ['.container-fluid', '.row', '.col-md-'] } },
     { name: 'Bulma', category: 'css-framework', url: 'https://bulma.io', isSignal: false, patterns: { dom: ['.is-primary.button', '.columns'] } },
     { name: 'styled-components', category: 'css-in-js', url: 'https://styled-components.com', isSignal: false, patterns: { globals: ['styled', '__styled-components__'], dom: ['style[data-styled]', '[class*="sc-"]', 'style[data-styled-components]'], scripts: [/styled-components/] } },
@@ -215,18 +267,18 @@ export const TECH_PATTERNS: TechPattern[] = [
     { name: 'Google Tag Manager', category: 'tag-manager', url: 'https://tagmanager.google.com', isSignal: false, patterns: { scripts: [/googletagmanager\.com\/gtm/] } },
 
     // Live Chat
-    { name: 'Intercom', category: 'live-chat', url: 'https://intercom.com', isSignal: false, patterns: { globals: ['Intercom'], scripts: [/intercom/], cookies: [{ name: 'intercom-session' }, { name: /^intercom-/i }] } },
-    { name: 'Zendesk', category: 'live-chat', url: 'https://zendesk.com', isSignal: false, patterns: { scripts: [/zendesk/, /zdassets/] } },
+    { name: 'Intercom', category: 'live-chat', url: 'https://intercom.com', isSignal: false, patterns: { globals: ['Intercom'], scripts: [/widget\.intercom\.io/, /js\.intercomcdn\.com/, /intercom\.io\/widget/], cookies: [{ name: 'intercom-session' }, { name: /^intercom-/i }] }, confidence: 85 },
+    { name: 'Zendesk', category: 'live-chat', url: 'https://zendesk.com', isSignal: false, patterns: { scripts: [/static\.zdassets\.com/, /widget\.zendesk\.com/, /zendesk\.com\/embeddable/], globals: ['zE'] }, confidence: 85 },
     { name: 'Drift', category: 'live-chat', url: 'https://drift.com', isSignal: false, patterns: { globals: ['drift'], scripts: [/drift\.com/] } },
     { name: 'Crisp', category: 'live-chat', url: 'https://crisp.chat', isSignal: false, patterns: { globals: ['$crisp'], scripts: [/crisp\.chat/] } },
     { name: 'Tawk.to', category: 'live-chat', url: 'https://tawk.to', isSignal: false, patterns: { globals: ['Tawk_API'], scripts: [/tawk\.to/] } },
-    { name: 'HubSpot', category: 'marketing-automation', url: 'https://hubspot.com', isSignal: false, patterns: { scripts: [/hubspot\.com/, /hs-scripts/], cookies: [{ name: 'hubspotutk' }, { name: '__hstc' }, { name: '__hssc' }] } },
+    { name: 'HubSpot', category: 'marketing-automation', url: 'https://hubspot.com', isSignal: false, patterns: { scripts: [/js\.hs-scripts\.com/, /js\.hubspot\.com/, /hs-scripts\.com/], cookies: [{ name: 'hubspotutk' }, { name: '__hstc' }, { name: '__hssc' }], globals: ['hsq'] }, confidence: 85 },
 
     // ==================== COMMERCE & PAYMENTS ====================
     { name: 'Stripe', category: 'payment', url: 'https://stripe.com', isSignal: false, patterns: { globals: ['Stripe'], scripts: [/js\.stripe\.com/], cookies: [{ name: '__stripe_mid' }, { name: '__stripe_sid' }] } },
-    { name: 'PayPal', category: 'payment', url: 'https://paypal.com', isSignal: false, patterns: { globals: ['paypal'], scripts: [/paypal\.com/] } },
-    { name: 'Paddle', category: 'payment', url: 'https://paddle.com', isSignal: true, patterns: { globals: ['Paddle'], scripts: [/paddle\.com/] } },
-    { name: 'LemonSqueezy', category: 'payment', url: 'https://lemonsqueezy.com', isSignal: true, patterns: { scripts: [/lemonsqueezy/] } },
+    { name: 'PayPal', category: 'payment', url: 'https://paypal.com', isSignal: false, patterns: { globals: ['paypal'], scripts: [/www\.paypal\.com\/sdk/, /paypalobjects\.com/, /paypal\.com\/js/] }, confidence: 85 },
+    { name: 'Paddle', category: 'payment', url: 'https://paddle.com', isSignal: true, patterns: { globals: ['Paddle'], scripts: [/cdn\.paddle\.com/, /paddle\.com\/paddle\.js/] }, confidence: 85 },
+    { name: 'LemonSqueezy', category: 'payment', url: 'https://lemonsqueezy.com', isSignal: true, patterns: { scripts: [/cdn\.lemonsqueezy\.com/, /lemonsqueezy\.com\/js/, /lemonsqueezy\.com\/embed/], globals: ['LemonSqueezy'] }, confidence: 85 },
     { name: 'Gumroad', category: 'payment', url: 'https://gumroad.com', isSignal: false, patterns: { scripts: [/gumroad/] } },
 
     // ==================== INFRASTRUCTURE ====================
@@ -542,11 +594,12 @@ export const TECH_PATTERNS: TechPattern[] = [
         url: 'https://claude.ai',
         isSignal: true,
         patterns: {
-            // Claude artifacts typically have minimal boilerplate, specific patterns
-            html: [/Claude Artifact/i],
-            meta: [{ name: 'generator', content: /claude/i }],
+            // Claude artifacts are only on artifact pages, not the main site
+            url: [/claude\.ai\/.*artifact/i, /artifact.*claude/i],
+            html: [/<title[^>]*>.*Claude Artifact/i, /Claude Artifact.*<\/title>/i],
+            meta: [{ name: 'generator', content: /^claude.*artifact/i }],
         },
-        confidence: 80,
+        confidence: 90,
     },
     {
         name: 'GPT Engineer',
@@ -764,8 +817,8 @@ export const TECH_PATTERNS: TechPattern[] = [
         url: 'https://canva.com',
         isSignal: false,
         patterns: {
+            // Require URL pattern OR meta tag - script mentions alone are not enough
             url: [/\.canva\.site$/, /my\.canva\.site/],
-            scripts: [/canva\.com/],
             meta: [{ name: 'generator', content: /canva/i }],
         },
         confidence: 100,

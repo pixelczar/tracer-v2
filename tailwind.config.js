@@ -25,6 +25,7 @@ export default {
             fontSize: {
                 '2xs': '10px',
                 '3xs': '9px',
+                '4xs': '8px',
             },
             animation: {
                 shimmer: 'shimmer 1s ease infinite',

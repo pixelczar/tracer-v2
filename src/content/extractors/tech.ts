@@ -482,6 +482,89 @@ function performDetection(
         findings.delete('Vercel v0');
     }
 
+    // Claude Artifacts: Only detect on actual artifact pages, not main claude.ai site
+    if (findings.has('Claude Artifacts')) {
+        const isClaudeDomain = /claude\.ai/.test(currentUrl);
+        const isArtifactPage = /claude\.ai\/.*artifact|artifact/.test(currentUrl) || 
+                              /Claude Artifact/i.test(document.title) ||
+                              document.querySelector('meta[name="generator"][content*="claude.*artifact" i]');
+        
+        // If on claude.ai but not an artifact page, remove detection
+        if (isClaudeDomain && !isArtifactPage) {
+            findings.delete('Claude Artifacts');
+        }
+        
+        // Require at least 2 patterns for extra safety
+        const claudeData = findings.get('Claude Artifacts');
+        if (claudeData && claudeData.matchedPatterns < 2) {
+            findings.delete('Claude Artifacts');
+        }
+    }
+
+    // Canva Websites: Require URL pattern or meta tag (not just script mentions)
+    if (findings.has('Canva Websites')) {
+        const isCanvaSite = /\.canva\.site$|my\.canva\.site/.test(currentUrl);
+        const hasCanvaMeta = document.querySelector('meta[name="generator"][content*="canva" i]');
+        if (!isCanvaSite && !hasCanvaMeta) {
+            findings.delete('Canva Websites');
+        }
+    }
+
+    // ========== PAYMENT SERVICES FALSE POSITIVE MITIGATION ==========
+    // If multiple payment services detected, require strong signals (globals or specific script domains)
+    const paymentServices = ['Stripe', 'PayPal', 'Paddle', 'LemonSqueezy', 'Gumroad'];
+    const detectedPayments = paymentServices.filter(name => findings.has(name));
+    
+    if (detectedPayments.length > 1) {
+        // Check for strong signals (globals or specific script patterns)
+        const hasStripeGlobal = foundGlobals.includes('Stripe');
+        const hasPayPalGlobal = foundGlobals.includes('paypal');
+        const hasPaddleGlobal = foundGlobals.includes('Paddle');
+        const hasStripeScript = scriptSrcs.some(src => /js\.stripe\.com/.test(src));
+        const hasPayPalScript = scriptSrcs.some(src => /www\.paypal\.com\/sdk|paypalobjects\.com/.test(src));
+        const hasPaddleScript = scriptSrcs.some(src => /cdn\.paddle\.com|paddle\.com\/paddle\.js/.test(src));
+        const hasLemonSqueezyScript = scriptSrcs.some(src => /lemonsqueezy\.com|cdn\.lemonsqueezy\.com/.test(src));
+        
+        // Remove services without strong signals if others have them
+        if (detectedPayments.includes('Stripe') && !hasStripeGlobal && !hasStripeScript && (hasPayPalGlobal || hasPaddleGlobal || hasPayPalScript || hasPaddleScript)) {
+            findings.delete('Stripe');
+        }
+        if (detectedPayments.includes('PayPal') && !hasPayPalGlobal && !hasPayPalScript && (hasStripeGlobal || hasPaddleGlobal || hasStripeScript || hasPaddleScript)) {
+            findings.delete('PayPal');
+        }
+        if (detectedPayments.includes('Paddle') && !hasPaddleGlobal && !hasPaddleScript && (hasStripeGlobal || hasPayPalGlobal || hasStripeScript || hasPayPalScript)) {
+            findings.delete('Paddle');
+        }
+        if (detectedPayments.includes('LemonSqueezy') && !hasLemonSqueezyScript && (hasStripeGlobal || hasPayPalGlobal || hasPaddleGlobal || hasStripeScript || hasPayPalScript || hasPaddleScript)) {
+            findings.delete('LemonSqueezy');
+        }
+    }
+
+    // ========== LIVE CHAT SERVICES FALSE POSITIVE MITIGATION ==========
+    // If multiple live chat services detected, require strong signals
+    const liveChatServices = ['Intercom', 'Zendesk', 'Drift', 'Crisp', 'Tawk.to'];
+    const detectedLiveChat = liveChatServices.filter(name => findings.has(name));
+    
+    if (detectedLiveChat.length > 1) {
+        // Check for strong signals
+        const hasIntercomGlobal = foundGlobals.includes('Intercom');
+        const hasIntercomCookie = parsedCookies.has('intercom-session') || Array.from(parsedCookies.keys()).some(k => /^intercom-/i.test(k));
+        const hasIntercomScript = scriptSrcs.some(src => /widget\.intercom\.io|js\.intercomcdn\.com/.test(src));
+        const hasZendeskScript = scriptSrcs.some(src => /static\.zdassets\.com|widget\.zendesk\.com/.test(src));
+        const hasZendeskGlobal = foundGlobals.includes('zE');
+        const hasDriftGlobal = foundGlobals.includes('drift');
+        const hasCrispGlobal = foundGlobals.includes('$crisp');
+        const hasTawkGlobal = foundGlobals.includes('Tawk_API');
+        
+        // Remove services without strong signals if others have them
+        if (detectedLiveChat.includes('Intercom') && !hasIntercomGlobal && !hasIntercomCookie && !hasIntercomScript && (hasZendeskScript || hasZendeskGlobal || hasDriftGlobal || hasCrispGlobal || hasTawkGlobal)) {
+            findings.delete('Intercom');
+        }
+        if (detectedLiveChat.includes('Zendesk') && !hasZendeskGlobal && !hasZendeskScript && (hasIntercomGlobal || hasIntercomCookie || hasIntercomScript || hasDriftGlobal || hasCrispGlobal || hasTawkGlobal)) {
+            findings.delete('Zendesk');
+        }
+    }
+
     // ========== CMS CONFLICT RESOLUTION ==========
     // WordPress vs Drupal: If both detected, prioritize based on confidence and specific signals
     if (findings.has('WordPress') && findings.has('Drupal')) {

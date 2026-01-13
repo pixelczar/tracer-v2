@@ -35,15 +35,16 @@ export function TechSection({ tech }: Props) {
         return acc;
     }, {} as Record<string, TechInfo[]>);
 
-    const groupOrder = ['Frontend', 'Styling', 'Graphics', 'Content', 'Analytics', 'Marketing', 'Commerce', 'Infra', 'Security', 'Developer', 'Misc'];
-    const sortedGroupNames = Object.keys(groups).sort((a, b) => {
-        const idxA = groupOrder.indexOf(a);
-        const idxB = groupOrder.indexOf(b);
-        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-        if (idxA !== -1) return -1;
-        if (idxB !== -1) return 1;
-        return a.localeCompare(b);
-    });
+    const defaultGroupOrder = ['Frontend', 'Styling', 'Graphics', 'Content', 'Analytics', 'Marketing', 'Commerce', 'Infra', 'Security', 'Developer', 'Misc', 'AI'];
+    const availableGroups = Object.keys(groups);
+    
+    // Use custom order from settings or default order
+    const customOrder = settings.categoryGroupOrder || [];
+    const groupOrder = customOrder.length > 0
+        ? [...customOrder.filter(g => availableGroups.includes(g)), ...availableGroups.filter(g => !customOrder.includes(g))]
+        : defaultGroupOrder.filter(g => availableGroups.includes(g));
+    
+    const sortedGroupNames = groupOrder;
 
     const allSortedTech = sortedGroupNames.flatMap(name =>
         groups[name].sort((a, b) => {

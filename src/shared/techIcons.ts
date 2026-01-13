@@ -33,7 +33,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Mantine': 'Mantine.svg',
     'DaisyUI': 'DaisyUI.svg',
     'Radix UI': 'Radix.svg',
-    'Shadcn UI': 'Shadcn.svg',
+    'Shadcn UI': 'shadcn-ui.svg',
     'Headless UI': 'HeadlessUI.svg',
     'NextUI': 'NextUI.svg',
     'Blueprint': 'Blueprint.svg',
@@ -106,7 +106,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Paper.js': 'Paper.svg',
     'Paper': 'Paper.svg',
     'p5.js': 'p5.svg',
-    'D3.js': 'D3.js.svg',
+    'D3.js': 'D3.png',
     'Chart.js': 'Chart.js.svg',
     'Recharts': 'Recharts.svg',
     'ECharts': 'ECharts.svg',
@@ -124,6 +124,14 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Prismic': 'Prismic.svg',
     'Ghost': 'Ghost.svg',
     'Payload': 'PayloadCMS.svg',
+    'Drupal': 'Drupal.svg',
+    'Joomla': 'Joomla.svg',
+    'Craft CMS': 'Craft CMS.svg',
+    'Directus': 'Directus.svg',
+    'Elementor': 'Elementor.svg',
+    'Elementor AI': 'Elementor.svg',
+    'Divi': 'Divi.svg',
+    'Divi AI': 'Divi.svg',
     // Note: Missing icons will use Tracer logo as placeholder in TechItem component
 
     // E-commerce
@@ -140,6 +148,18 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Wix': 'Wix.svg',
     'Carrd': 'Carrd.svg',
     'Bubble': 'Bubble.svg',
+    'Jimdo': 'Jimdo.svg',
+    'Softr': 'Softr.svg',
+    'Unicorn Platform': 'Unicorn Platform.svg',
+    'Unbounce': 'Unbounce.png',
+    'Instapage': 'Instapage.svg',
+    'Canva Websites': 'Canva.svg',
+    'Notion Sites': 'Notion.svg',
+    'Notion': 'Notion.svg',
+    'Plasmic': 'Plasmic.svg',
+    'PageFly': 'pagefly.png',
+    'GemPages': 'GemPages.svg',
+    'Pico': 'pico.svg',
 
     // Documentation
     'Docusaurus': 'Docusaurus.svg',
@@ -190,7 +210,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Stripe': 'Stripe.svg',
     'PayPal': 'PayPal.svg',
     'Paddle': 'Paddle.svg',
-    'LemonSqueezy': 'LemonSqueezy.svg',
+    'LemonSqueezy': 'Lemon Squeezy.svg',
     'Gumroad': 'Gumroad.svg',
 
     // Infrastructure

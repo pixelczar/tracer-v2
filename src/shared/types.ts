@@ -24,6 +24,8 @@ export interface ColorInfo {
     source: 'css' | 'computed' | 'image';
 }
 
+export type ColorFormat = 'hex' | 'rgba' | 'oklch' | 'hsl';
+
 export interface FontInfo {
     family: string;
     weights: string[];
