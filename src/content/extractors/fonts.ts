@@ -906,13 +906,13 @@ function findFontUrl(family: string): string | null {
 }
 
 /**
- * Render font preview using direct canvas text rendering.
- * This approach renders text directly to canvas using the page's loaded fonts.
- * The key is ensuring fonts are loaded before rendering - we try multiple times
- * and use the actual computed font from a DOM element as validation.
+ * Render font preview using SVG foreignObject approach.
+ * 
+ * Strategy:
+ * 1. Try blob URL with crossOrigin anonymous (best font support)
+ * 2. Fall back to direct canvas text rendering
  */
 async function renderFontToCanvas(family: string, text: string, isMono: boolean, isSerif: boolean, weight: string = '400'): Promise<string> {
-  try {
     const size = 64;
     const maxWidth = 800;
     const maxLines = 2;
@@ -932,154 +932,234 @@ async function renderFontToCanvas(family: string, text: string, isMono: boolean,
         fallback = 'sans-serif';
     }
     const fontStack = `${familyQuoted}, ${fallback}`;
-    const canvasFontSpec = `${weight} ${size}px ${fontStack}`;
 
-    // Try to pre-load the font using document.fonts API
-    // This increases the chance canvas can use it
+    // Pre-load font
     try {
         await document.fonts.load(`${weight} ${size}px ${familyQuoted}`);
         await document.fonts.ready;
     } catch {
-        // Ignore - font might still be usable
+        // Continue anyway
     }
 
-    // Create a test element to verify the font is actually being used
-    // This is more reliable than document.fonts.check()
-    const testEl = document.createElement('span');
-    testEl.style.cssText = `
-        position: absolute;
-        left: -9999px;
-        top: -9999px;
-        font-family: ${fontStack};
-        font-weight: ${weight};
-        font-size: ${size}px;
-        white-space: nowrap;
-        visibility: hidden;
-    `;
-    testEl.textContent = 'mmmmm';
-    
     if (!document.body) {
         return '';
     }
-    
-    document.body.appendChild(testEl);
-    
-    // Force reflow and wait for font to load
-    void testEl.offsetWidth;
-    await new Promise(resolve => setTimeout(resolve, 50));
-    
-    // Get computed font to verify it's loaded
-    const computed = getComputedStyle(testEl);
-    const computedFamily = computed.fontFamily;
-    
-    // Clean up test element
-    document.body.removeChild(testEl);
-    
-    // Check if the font is actually being used (not falling back to generic)
-    // If computed family doesn't include our font name, the font isn't loaded
-    const fontNameLower = family.toLowerCase();
-    const computedLower = computedFamily.toLowerCase();
-    const fontIsActive = computedLower.includes(fontNameLower) || 
-                         computedLower.includes(family.replace(/['"]/g, '').toLowerCase());
-    
-    if (!fontIsActive && !isSystemKey) {
-        // Font not loaded - wait and try once more
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        try {
-            await document.fonts.load(`${weight} ${size}px ${familyQuoted}`);
-            await document.fonts.ready;
-        } catch {
-            // Continue anyway - we'll render with fallback
-        }
-    }
 
-    // Create canvas for rendering
-    const dpr = window.devicePixelRatio || 1;
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.ceil(maxWidth * dpr);
-    canvas.height = Math.ceil(lineHeight * maxLines * dpr);
+    // Create a container element styled with the font
+    const container = document.createElement('div');
+    container.style.cssText = `
+        position: absolute;
+        left: -9999px;
+        top: -9999px;
+        width: ${maxWidth}px;
+        font-family: ${fontStack};
+        font-weight: ${weight};
+        font-size: ${size}px;
+        line-height: ${lineHeight}px;
+        color: #000000;
+        background: white;
+        white-space: normal;
+        word-break: break-word;
+        display: -webkit-box;
+        -webkit-line-clamp: ${maxLines};
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+    `;
+    container.textContent = text;
     
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
+    try {
+        document.body.appendChild(container);
+    } catch {
         return '';
     }
     
-    ctx.scale(dpr, dpr);
-    ctx.font = canvasFontSpec;
-    ctx.fillStyle = '#000000';
-    ctx.textBaseline = 'top';
+    // Force reflow and wait for font to render
+    void container.offsetHeight;
+    await new Promise(resolve => setTimeout(resolve, 150));
     
-    // Apply text rendering hints (canvas doesn't support all CSS properties but these help)
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-
-    // Word wrap the text
-    const words = text.split(' ');
-    const lines: string[] = [];
-    let currentLine = words[0] || '';
-
-    for (let i = 1; i < words.length; i++) {
-        const testLine = currentLine + ' ' + words[i];
-        const testWidth = ctx.measureText(testLine).width;
+    // Get dimensions
+    let width: number, height: number;
+    try {
+        const rect = container.getBoundingClientRect();
+        width = Math.ceil(rect.width) || maxWidth;
+        height = Math.ceil(rect.height) || Math.ceil(lineHeight * maxLines);
+    } catch {
+        width = maxWidth;
+        height = Math.ceil(lineHeight * maxLines);
+    }
+    
+    const dpr = window.devicePixelRatio || 1;
+    
+    // APPROACH 1: Try SVG foreignObject with blob URL
+    let svgUrl: string | null = null;
+    try {
+        // Clone the container for SVG embedding
+        const clone = container.cloneNode(true) as HTMLElement;
+        clone.style.position = 'static';
+        clone.style.left = 'auto';
+        clone.style.top = 'auto';
+        clone.style.width = `${width}px`;
+        clone.style.margin = '0';
+        clone.style.padding = '0';
+        clone.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
         
-        if (testWidth > maxWidth && currentLine) {
-            lines.push(currentLine);
-            currentLine = words[i];
-            if (lines.length >= maxLines) break;
-        } else {
-            currentLine = testLine;
+        const svgNS = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(svgNS, 'svg');
+        svg.setAttribute('width', String(width));
+        svg.setAttribute('height', String(height));
+        svg.setAttribute('xmlns', svgNS);
+        
+        const foreignObject = document.createElementNS(svgNS, 'foreignObject');
+        foreignObject.setAttribute('width', '100%');
+        foreignObject.setAttribute('height', '100%');
+        foreignObject.appendChild(clone);
+        svg.appendChild(foreignObject);
+        
+        const svgString = new XMLSerializer().serializeToString(svg);
+        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        svgUrl = URL.createObjectURL(svgBlob);
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.ceil(width * dpr);
+        canvas.height = Math.ceil(height * dpr);
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('No canvas context');
+        
+        ctx.scale(dpr, dpr);
+        
+        // Load image and draw to canvas
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        
+        const result = await new Promise<string>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error('Image load timeout'));
+            }, 5000);
+            
+            img.onload = () => {
+                clearTimeout(timeout);
+                try {
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const dataUrl = canvas.toDataURL('image/png');
+                    resolve(dataUrl);
+                } catch (e) {
+                    reject(e);
+                }
+            };
+            
+            img.onerror = () => {
+                clearTimeout(timeout);
+                reject(new Error('Image load error'));
+            };
+            
+            img.src = svgUrl!;
+        });
+        
+        // Clean up
+        URL.revokeObjectURL(svgUrl);
+        try { document.body.removeChild(container); } catch { /* ignore */ }
+        
+        return result;
+        
+    } catch (svgError) {
+        // Clean up blob URL
+        if (svgUrl) {
+            try { URL.revokeObjectURL(svgUrl); } catch { /* ignore */ }
         }
-    }
-    
-    if (lines.length < maxLines && currentLine) {
-        // Truncate with ellipsis if needed
-        if (ctx.measureText(currentLine).width > maxWidth) {
-            while (ctx.measureText(currentLine + '...').width > maxWidth && currentLine.length > 0) {
-                currentLine = currentLine.slice(0, -1);
+        
+        // APPROACH 2: Direct canvas text rendering
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.ceil(maxWidth * dpr);
+            canvas.height = Math.ceil(lineHeight * maxLines * dpr);
+            
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                try { document.body.removeChild(container); } catch { /* ignore */ }
+                return '';
             }
-            currentLine += '...';
+            
+            ctx.scale(dpr, dpr);
+            ctx.font = `${weight} ${size}px ${fontStack}`;
+            ctx.fillStyle = '#000000';
+            ctx.textBaseline = 'top';
+
+            // Word wrap
+            const words = text.split(' ');
+            const lines: string[] = [];
+            let currentLine = words[0] || '';
+
+            for (let i = 1; i < words.length; i++) {
+                const testLine = currentLine + ' ' + words[i];
+                const testWidth = ctx.measureText(testLine).width;
+                
+                if (testWidth > maxWidth && currentLine) {
+                    lines.push(currentLine);
+                    currentLine = words[i];
+                    if (lines.length >= maxLines) break;
+                } else {
+                    currentLine = testLine;
+                }
+            }
+            
+            if (lines.length < maxLines && currentLine) {
+                if (ctx.measureText(currentLine).width > maxWidth) {
+                    while (ctx.measureText(currentLine + '...').width > maxWidth && currentLine.length > 0) {
+                        currentLine = currentLine.slice(0, -1);
+                    }
+                    currentLine += '...';
+                }
+                lines.push(currentLine);
+            }
+
+            lines.forEach((line, i) => {
+                ctx.fillText(line, 0, i * lineHeight);
+            });
+
+            // Trim canvas
+            const actualHeight = Math.ceil(lines.length * lineHeight);
+            const trimmedCanvas = document.createElement('canvas');
+            trimmedCanvas.width = canvas.width;
+            trimmedCanvas.height = Math.ceil(actualHeight * dpr);
+            
+            const trimCtx = trimmedCanvas.getContext('2d');
+            if (trimCtx) {
+                trimCtx.drawImage(canvas, 0, 0);
+            }
+
+            // Clean up
+            try { document.body.removeChild(container); } catch { /* ignore */ }
+            
+            return trimmedCanvas.toDataURL('image/png');
+            
+        } catch (canvasError) {
+            // Clean up
+            try { document.body.removeChild(container); } catch { /* ignore */ }
+            
+            // Log only for non-system fonts
+            if (!isSystemKey) {
+                console.warn('[Tracer] renderFontToCanvas failed for', family, ':', 
+                    (canvasError instanceof Error) ? canvasError.message : String(canvasError));
+            }
+            return '';
         }
-        lines.push(currentLine);
     }
-
-    // Render each line
-    lines.forEach((line, i) => {
-        ctx.fillText(line, 0, i * lineHeight);
-    });
-
-    // Trim canvas to actual content height
-    const actualHeight = Math.ceil(lines.length * lineHeight);
-    const trimmedCanvas = document.createElement('canvas');
-    trimmedCanvas.width = canvas.width;
-    trimmedCanvas.height = Math.ceil(actualHeight * dpr);
-    
-    const trimCtx = trimmedCanvas.getContext('2d');
-    if (trimCtx) {
-        trimCtx.drawImage(canvas, 0, 0);
-    }
-
-    return trimmedCanvas.toDataURL('image/png');
-    
-  } catch (err) {
-    // Log errors for debugging (except for known system fonts)
-    if (!['system-ui', 'ui-serif', 'ui-sans-serif', 'ui-monospace', '-apple-system', 'BlinkMacSystemFont'].includes(family)) {
-        console.warn('[Tracer] renderFontToCanvas failed for', family, ':', err);
-    }
-    return '';
-  }
 }
 
 const SYSTEM_FONTS = [
-    // Generic font families (CSS keywords)
+    // Generic font families (CSS keywords) - these are not actual fonts
     'sans-serif', 'serif', 'monospace', 'cursive', 'fantasy',
-    // System font keywords
+    // System font keywords - these resolve to platform fonts
     'system-ui', 'ui-serif', 'ui-sans-serif', 'ui-monospace', 'ui-rounded',
-    // Platform-specific system fonts
-    '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue',
-    'Arial', 'Noto Sans', 'Liberation Sans', 'Helvetica',
-    // Common fallback names
-    'sans', 'initial', 'inherit', 'unset', 'revert',
+    // Browser-specific system font keywords
+    '-apple-system', 'blinkmacsystemfont',
+    // CSS keywords that aren't font names
+    'initial', 'inherit', 'unset', 'revert',
 ];
 
 function normalizeVariableFontWeights(fontMap: Map<string, FontDetails>) {

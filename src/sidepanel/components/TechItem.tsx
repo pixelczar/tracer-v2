@@ -41,7 +41,7 @@ export function TechItem({ tech }: Props) {
         {/* Name + Version + Link */}
         <span className={`flex items-center gap-1 text-[13px] min-w-0 overflow-hidden ${tech.isSignal ? 'font-semibold text-fg' : 'font-medium'}`}>
           <span className="truncate min-w-0" title={tech.name}>{tech.name}</span>
-          {tech.isSignal && <span className="text-accent text-4xs flex-shrink-0 -ml-0.5 -mt-2 opacity-60 group-hover:opacity-100">✦</span>}
+          {tech.isSignal && <span className="text-accent text-4xs flex-shrink-0 -ml-0.5 -mt-2 opacity-30 group-hover:opacity-100">✦</span>}
           {tech.version && (
             <span className="text-muted text-2xs font-mono flex-shrink-0">{tech.version}</span>
           )}

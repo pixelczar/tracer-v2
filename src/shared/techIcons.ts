@@ -67,7 +67,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Panda CSS': 'Vite.svg',
 
     // Font Services
-    'Google Fonts': 'Google Fonts.svg',
+    'Google Fonts': 'Google Font API.svg',
     'Adobe Fonts': 'Adobe Fonts.svg',
     'Font Awesome': 'Font Awesome.svg',
     'Lucide': 'Lucide.svg',
@@ -77,7 +77,7 @@ const TECH_ICON_MAP: Record<string, string> = {
 
     // Graphics & Animation
     'GSAP': 'GSAP.svg',
-    'Framer Motion': 'Framer Sites.svg', // Using Framer Sites icon as fallback
+    'Framer Motion': 'FramerMotion.svg',
     'Anime.js': 'Anime.js.svg',
     'Lottie': 'Lottie.svg',
     'Rive': 'Rive.svg',
@@ -143,7 +143,7 @@ const TECH_ICON_MAP: Record<string, string> = {
 
     // Site Builders
     'Webflow': 'Webflow.svg',
-    'Framer': 'Framer.svg',
+    'Framer': 'Framer Sites.svg',
     'Squarespace': 'Squarespace.svg',
     'Wix': 'Wix.svg',
     'Carrd': 'Carrd.svg',
