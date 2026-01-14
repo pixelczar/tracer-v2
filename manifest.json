@@ -20,9 +20,9 @@
     "action": {
         "default_title": "Open Tracer",
         "default_icon": {
-            "16": "src/assets/icons/favicon.png",
-            "32": "src/assets/icons/favicon.png",
-            "48": "src/assets/icons/favicon.png",
+            "16": "src/assets/icons/favicon_256.png",
+            "32": "src/assets/icons/favicon_256.png",
+            "48": "src/assets/icons/favicon_256.png",
             "128": "src/assets/icons/favicon_256.png"
         }
     },

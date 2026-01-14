@@ -7,6 +7,7 @@ import { IconClose, IconSun, IconMoon, IconChevronDown, IconGrip } from './Icons
 import { getSettings, updateSettings, type Settings } from '../../shared/settings';
 import { TECH_CATEGORY_META, type TechCategory, type ColorFormat } from '../../shared/types';
 import favicon from '../../assets/icons/favicon_256.png';
+import faviconLight from '../../assets/icons/icon-light-128.png';
 
 const sexyEase = [0.16, 1, 0.3, 1] as const;
 
@@ -413,9 +414,9 @@ export function SettingsPopover({ theme, onThemeChange, onRescan, onOpenChange }
                 title="Settings"
             >
                 <img 
-                    src={favicon} 
+                    src={theme === 'light' ? faviconLight : favicon} 
                     alt="Tracer" 
-                    className={`w-5 h-5 ${theme === 'light' ? 'invert' : ''}`}
+                    className="w-5 h-5"
                 />
             </button>
 

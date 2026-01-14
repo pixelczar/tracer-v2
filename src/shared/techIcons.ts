@@ -142,7 +142,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Snipcart': 'Snipcart.svg',
 
     // Site Builders
-    'Webflow': 'Webflow.svg',
+    'Webflow': 'webflow.svg',
     'Framer': 'Framer Sites.svg',
     'Squarespace': 'Squarespace.svg',
     'Wix': 'Wix.svg',
@@ -224,7 +224,7 @@ const TECH_ICON_MAP: Record<string, string> = {
     'Cloudflare': 'Cloudflare.svg',
     'Fastly': 'Fastly.svg',
     'Amazon Web Services': 'Amazon Web Services.svg',
-    'Amazon CloudFront': 'Amazon CloudFront.svg',
+    'Amazon CloudFront': 'Amazon Cloudfront.svg',
     'Amazon S3': 'Amazon S3.svg',
     'Nginx': 'Nginx.svg',
     'Google Cloud Platform': 'Google Cloud Platform.svg',

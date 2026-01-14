@@ -156,7 +156,7 @@ function FontItem({ font, sessionPangram }: { font: FontInfo; sessionPangram: st
                         
                         {/* Canvas method failed - show placeholder, NOT wrong font */}
                         {font.preview.method === 'canvas' && !specimenSrc && (
-                            <p className="text-2xl tracking-tight max-w-[300px] text-muted-foreground/50 italic">
+                            <p className="text-[12px] text-muted mb-2 flex items-center">
                                 Preview unavailable
                             </p>
                         )}
@@ -215,11 +215,37 @@ function FontItem({ font, sessionPangram }: { font: FontInfo; sessionPangram: st
                             </>
                         )}
                         
-                        {/* CSS method - fallback, show placeholder since we can't render page fonts */}
+                        {/* CSS method - render system fonts directly, or show placeholder for others */}
                         {font.preview.method === 'css' && (
-                            <p className="text-2xl tracking-tight max-w-[300px] text-muted-foreground/50 italic">
-                                Preview unavailable
-                            </p>
+                            <>
+                                {/* If data is a font family name (system font fallback), render it directly */}
+                                {font.preview.data && !font.preview.data.startsWith('http') && !font.preview.data.startsWith('data:') ? (
+                                    <p
+                                        className="text-2xl tracking-tight max-w-[300px]"
+                                        style={{
+                                            fontFamily: `'${font.preview.data}', ${font.isMono ? 'monospace' : font.isSerif ? 'serif' : 'sans-serif'}`,
+                                            fontWeight: activeWeight,
+                                            display: '-webkit-box',
+                                            WebkitLineClamp: 2,
+                                            WebkitBoxOrient: 'vertical',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            wordBreak: 'break-word',
+                                            whiteSpace: 'normal',
+                                            lineHeight: '1.2',
+                                            WebkitFontSmoothing: 'antialiased',
+                                            MozOsxFontSmoothing: 'grayscale',
+                                            textRendering: 'optimizeLegibility'
+                                        }}
+                                    >
+                                        {sessionPangram}
+                                    </p>
+                                ) : (
+                                    <p className="text-[12px] text-muted py-1 flex items-center">
+                                        Preview unavailable
+                                    </p>
+                                )}
+                            </>
                         )}
                     </motion.div>
                 </AnimatePresence>

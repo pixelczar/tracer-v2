@@ -34,6 +34,13 @@ export async function extractFonts(): Promise<FontInfo[]> {
         } catch (err) {
             console.warn('[Tracer] Error detecting loaded fonts:', err);
         }
+
+        // 2.5. Detect actual system fonts from document.fonts API (catches .SF NS, etc.)
+        try {
+            detectSystemFonts(fontMap, fontNameMap);
+        } catch (err) {
+            console.warn('[Tracer] Error detecting system fonts:', err);
+        }
         
         // 3. Build a map of CSS font names to actual font names from document.fonts and @font-face
         // Do this after collecting all CSS names
@@ -111,7 +118,16 @@ export async function extractFonts(): Promise<FontInfo[]> {
             })
         );
 
-        return fonts.filter(f => !isSystemFont(f.family));
+        // Filter out generic keywords but keep actual system fonts (like San Francisco)
+        return fonts.filter(f => {
+            const lowerFamily = f.family.toLowerCase();
+            // Filter out generic CSS keywords, but keep actual system font names
+            const isGenericKeyword = SYSTEM_FONTS.includes(lowerFamily) && 
+                                    !lowerFamily.includes('.') && // Actual fonts have dots (e.g., ".SF NS")
+                                    !lowerFamily.includes('sf') && // San Francisco variants
+                                    !lowerFamily.includes('san francisco');
+            return !isGenericKeyword;
+        });
     } catch (err) {
         console.error('[Tracer] Fatal error in extractFonts:', err);
         return []; // Return empty array instead of throwing
@@ -347,9 +363,68 @@ function scanComputedFonts(fontMap: Map<string, FontDetails>, fontNameMap: Map<s
 
         const computed = getComputedStyle(el);
         const rawFamily = computed.fontFamily;
-        const family = rawFamily.split(',')[0].replace(/["']/g, '').trim();
+        let family = rawFamily.split(',')[0].replace(/["']/g, '').trim();
 
         if (!family) return;
+
+        // If this is a system font keyword (like -apple-system), get the actual rendered font
+        if (isSystemFont(family.toLowerCase())) {
+            // Create a test element to see what font actually gets rendered
+            try {
+                if (document.body) {
+                    const testEl = document.createElement('span');
+                    testEl.style.fontFamily = rawFamily;
+                    testEl.style.position = 'absolute';
+                    testEl.style.visibility = 'hidden';
+                    testEl.style.fontSize = '16px';
+                    testEl.textContent = 'A';
+                    document.body.appendChild(testEl);
+                    
+                    // Get the actual rendered font name
+                    const testComputed = getComputedStyle(testEl);
+                    const actualFont = testComputed.fontFamily.split(',')[0].replace(/["']/g, '').trim();
+                    
+                    document.body.removeChild(testEl);
+                    
+                    // Use the actual font name instead of the keyword
+                    if (actualFont && actualFont !== family && !isSystemFont(actualFont.toLowerCase())) {
+                        family = actualFont;
+                    } else {
+                        // If it's still a system keyword, skip it (will be handled by detectSystemFonts)
+                        return;
+                    }
+                } else {
+                    return;
+                }
+            } catch (e) {
+                // If test fails, skip this element
+                return;
+            }
+        }
+
+        // Check if the actual rendered font is a system font (like .SF NS)
+        const lowerFamily = family.toLowerCase();
+        const isSystemFontName = lowerFamily.includes('.') || 
+                                lowerFamily.includes('sf ns') ||
+                                lowerFamily.startsWith('sfns') ||
+                                lowerFamily.includes('segoe') ||
+                                lowerFamily.match(/^\.sf/i) || // .SF NS, .SFNS, etc.
+                                lowerFamily.match(/sf\s*ns/i); // SF NS variations
+        
+        // If it's a system font, mark it for proper naming
+        if (isSystemFontName) {
+            // Determine friendly name for system fonts
+            let systemFontName: string | null = null;
+            if ((lowerFamily.includes('sf') || lowerFamily.match(/^\.sf/i)) && !lowerFamily.includes('pro')) {
+                systemFontName = 'Apple System Font';
+            } else if (lowerFamily.includes('segoe')) {
+                systemFontName = 'Segoe UI';
+            }
+            
+            if (systemFontName) {
+                fontNameMap.set(family, systemFontName);
+            }
+        }
 
         // Add CSS name to fontNameMap for later mapping
         if (!fontNameMap.has(family)) {
@@ -358,11 +433,10 @@ function scanComputedFonts(fontMap: Map<string, FontDetails>, fontNameMap: Map<s
 
         // Detect monospace fonts: check for "monospace" in font-family stack or "mono" in font name
         const isMono = rawFamily.toLowerCase().includes('monospace') || 
-                      family.toLowerCase().includes('mono');
+                      lowerFamily.includes('mono');
         
         // Detect serif fonts: ONLY check the actual font name (not fallbacks in the stack)
         // Also check for common serif font name patterns
-        const lowerFamily = family.toLowerCase();
         // Only check the primary font name, not the fallback stack (which often contains "serif" or "sans-serif")
         const isSerif = lowerFamily.includes('serif') ||
                        // Check for common serif font name patterns (but exclude "sans" which indicates sans-serif)
@@ -382,6 +456,9 @@ function scanComputedFonts(fontMap: Map<string, FontDetails>, fontNameMap: Map<s
                            lowerFamily.includes('libre baskerville')
                        ));
         
+        // Determine source - check if it's a system font (already detected above)
+        const source = isSystemFontName ? 'system' as const : 'custom' as const;
+        
         const existing = fontMap.get(family) || {
             family,
             weights: [],
@@ -389,7 +466,7 @@ function scanComputedFonts(fontMap: Map<string, FontDetails>, fontNameMap: Map<s
             letterSpacing: [],
             lineHeight: [],
             sizes: [],
-            source: 'custom' as const,
+            source,
             isMono,
             isSerif,
             isIconFont: false,
@@ -505,6 +582,199 @@ function detectLoadedFonts(fontMap: Map<string, FontDetails>, fontNameMap: Map<s
     } catch (e) {
         // Fallback if there's an error
         console.warn('[Tracer] Error detecting loaded fonts:', e);
+    }
+}
+
+function detectSystemFonts(fontMap: Map<string, FontDetails>, fontNameMap: Map<string, string>) {
+    // Map of system font names to user-friendly names
+    const systemFontMap: Record<string, string> = {
+        '.sf ns': 'Apple System Font',
+        '.sfns': 'Apple System Font',
+        'sf ns': 'Apple System Font',
+        'sfns': 'Apple System Font',
+        '.sfns-regular': 'Apple System Font',
+        '.sfns-text': 'Apple System Font',
+        '.sfns-display': 'Apple System Font',
+        'sf pro': 'SF Pro',
+        'sf pro text': 'SF Pro Text',
+        'sf pro display': 'SF Pro Display',
+        'sf mono': 'SF Mono',
+        'segoe ui': 'Segoe UI',
+        'roboto': 'Roboto',
+        'helvetica neue': 'Helvetica Neue',
+        'helvetica': 'Helvetica',
+        'arial': 'Arial',
+        'times': 'Times',
+        'times new roman': 'Times New Roman',
+        'courier new': 'Courier New',
+        'verdana': 'Verdana',
+        'georgia': 'Georgia',
+        'palatino': 'Palatino',
+        'garamond': 'Garamond',
+        'bookman': 'Bookman',
+        'comic sans ms': 'Comic Sans MS',
+        'trebuchet ms': 'Trebuchet MS',
+        'arial black': 'Arial Black',
+        'impact': 'Impact',
+    };
+    
+    // Helper to get friendly name for system fonts
+    const getSystemFontName = (fontName: string): string | null => {
+        const lower = fontName.toLowerCase().trim();
+        
+        // Check exact matches first
+        if (systemFontMap[lower]) {
+            return systemFontMap[lower];
+        }
+        
+        // Check for .SF NS variations (with or without spaces, different casing)
+        if (lower.includes('.sf') || lower.startsWith('sf ns') || lower === 'sfns') {
+            return 'Apple System Font';
+        }
+        
+        // Check for other SF variants
+        if (lower.includes('sf pro')) {
+            if (lower.includes('text')) return 'SF Pro Text';
+            if (lower.includes('display')) return 'SF Pro Display';
+            return 'SF Pro';
+        }
+        if (lower.includes('sf mono')) return 'SF Mono';
+        
+        // Check for other known system fonts
+        for (const [key, value] of Object.entries(systemFontMap)) {
+            if (lower.includes(key) || key.includes(lower)) {
+                return value;
+            }
+        }
+        
+        return null;
+    };
+
+    if (!document.fonts || document.fonts.size === 0) return;
+
+    // Check all font faces in document.fonts
+    for (const fontFace of document.fonts) {
+        const fontFamily = fontFace.family.toLowerCase().trim();
+        
+        // Skip if it's a generic keyword
+        if (isSystemFont(fontFamily)) continue;
+        
+        // Check if this looks like a system font (has dots, or matches known patterns)
+        const friendlyName = getSystemFontName(fontFace.family);
+        const isSystemFontName = friendlyName !== null || 
+                                 fontFamily.includes('.') || 
+                                 fontFamily.includes('sf') ||
+                                 fontFamily.includes('segoe') ||
+                                 fontFamily.match(/^\.sf/i) ||
+                                 fontFamily.match(/sf\s*ns/i);
+        
+        if (isSystemFontName) {
+            // Use friendly name or fallback
+            const displayName = friendlyName || 
+                              (fontFamily.includes('sf') && !fontFamily.includes('pro') ? 'Apple System Font' : null) ||
+                              cleanFontName(fontFace.family) || 
+                              fontFace.family;
+            
+            // Always update the name mapping, even if font is already in map
+            if (displayName && displayName !== fontFace.family) {
+                fontNameMap.set(fontFace.family, displayName);
+            }
+            
+            // Add to font map if not already present
+            if (!fontMap.has(fontFace.family)) {
+                fontMap.set(fontFace.family, {
+                    family: fontFace.family,
+                    weights: [],
+                    styles: [],
+                    letterSpacing: [],
+                    lineHeight: [],
+                    sizes: [],
+                    source: 'system',
+                    isMono: fontFamily.includes('mono') || fontFamily.includes('courier'),
+                    isSerif: fontFamily.includes('times') || fontFamily.includes('georgia') || 
+                            fontFamily.includes('garamond') || fontFamily.includes('palatino'),
+                    isIconFont: false,
+                });
+            } else {
+                // Update existing font to mark as system
+                const existing = fontMap.get(fontFace.family)!;
+                existing.source = 'system';
+            }
+        }
+    }
+    
+    // Also check computed styles for system fonts that might be in use
+    // This catches cases where -apple-system resolves to .SF NS
+    try {
+        const elements = document.querySelectorAll('body *');
+        const sample = Array.from(elements).slice(0, 100);
+        
+        for (const el of sample) {
+            if (isTracerElement(el)) continue;
+            
+            const computed = getComputedStyle(el);
+            const rawFamily = computed.fontFamily;
+            if (!rawFamily) continue;
+            
+            // Check if any font in the stack is a system font keyword
+            const families = rawFamily.split(',').map(f => f.replace(/["']/g, '').trim());
+            const hasSystemKeyword = families.some(f => isSystemFont(f.toLowerCase()));
+            
+            if (hasSystemKeyword) {
+                // Try to get the actual rendered font using a test element
+                try {
+                    const testEl = document.createElement('span');
+                    testEl.style.fontFamily = rawFamily;
+                    testEl.style.position = 'absolute';
+                    testEl.style.visibility = 'hidden';
+                    testEl.style.fontSize = '16px';
+                    testEl.textContent = 'A';
+                    
+                    if (document.body) {
+                        document.body.appendChild(testEl);
+                        
+                        // Use getComputedStyle to see what font was actually used
+                        const testComputed = getComputedStyle(testEl);
+                        const actualFont = testComputed.fontFamily.split(',')[0].replace(/["']/g, '').trim();
+                        
+                        // If it's a system font name (has dots or matches patterns), add it
+                        const lowerActual = actualFont.toLowerCase();
+                        const friendlyName = getSystemFontName(actualFont);
+                        const isSystemFontName = friendlyName !== null || 
+                                                lowerActual.includes('.') || 
+                                                lowerActual.includes('sf') ||
+                                                lowerActual.includes('segoe');
+                        
+                        if (isSystemFontName && 
+                            !isSystemFont(lowerActual) && 
+                            !fontMap.has(actualFont)) {
+                            
+                            const displayName = friendlyName || cleanFontName(actualFont) || actualFont;
+                            fontNameMap.set(actualFont, displayName);
+                            
+                            fontMap.set(actualFont, {
+                                family: actualFont,
+                                weights: [computed.fontWeight],
+                                styles: [computed.fontStyle as 'normal' | 'italic'],
+                                letterSpacing: computed.letterSpacing !== 'normal' ? [computed.letterSpacing] : [],
+                                lineHeight: [computed.lineHeight],
+                                sizes: [computed.fontSize],
+                                source: 'system',
+                                isMono: lowerActual.includes('mono'),
+                                isSerif: lowerActual.includes('times') || lowerActual.includes('georgia'),
+                                isIconFont: false,
+                            });
+                        }
+                        
+                        document.body.removeChild(testEl);
+                    }
+                } catch (e) {
+                    // Ignore errors
+                }
+            }
+        }
+    } catch (e) {
+        // Ignore errors
     }
 }
 
@@ -875,8 +1145,27 @@ async function generatePreview(font: FontDetails, previewText?: string): Promise
         };
     }
 
-    // Final fallback: return canvas method with empty data
-    // The sidepanel will show fallback font, but at least we tried canvas first
+    // Final fallback: check if it's a system font that can be rendered directly
+    // System fonts are available in the sidepanel, so we can render them via CSS
+    const lowerFamily = font.family.toLowerCase();
+    const commonSystemFonts = [
+        'helvetica', 'arial', 'times', 'courier', 'verdana', 'georgia',
+        'palatino', 'garamond', 'trebuchet', 'impact', 'comic sans',
+        'segoe', 'roboto', 'sf pro', 'sf mono', 'apple system'
+    ];
+    const isSystemFont = commonSystemFonts.some(sysFont => lowerFamily.includes(sysFont));
+    
+    if (isSystemFont) {
+        // Return 'system' method so sidepanel can render directly
+        // We'll use 'css' method but store the font family name in data
+        return {
+            method: 'css' as const,
+            data: font.family, // Store the font family name for direct rendering
+            previewText: textToUse,
+        };
+    }
+
+    // Not a system font and canvas failed - return empty canvas
     return {
         method: 'canvas',
         data: '',
@@ -957,7 +1246,7 @@ async function renderFontToCanvas(family: string, text: string, isMono: boolean,
         font-size: ${size}px;
         line-height: ${lineHeight}px;
         color: #000000;
-        background: white;
+        background: transparent;
         white-space: normal;
         word-break: break-word;
         display: -webkit-box;
@@ -968,6 +1257,7 @@ async function renderFontToCanvas(family: string, text: string, isMono: boolean,
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         text-rendering: optimizeLegibility;
+        pointer-events: none;
     `;
     container.textContent = text;
     

@@ -306,7 +306,7 @@ function ColorTooltip({
       {visible && (
         <motion.div
             ref={tooltipRef}
-            className="fixed top-0 left-0 pointer-events-none z-[9999] bg-[#0a0a0a] text-muted px-3 py-2 text-2xs font-mono shadow-lg border border-white/5 rounded-lg"
+            className="fixed top-0 left-0 pointer-events-none z-[9999] bg-[#0a0a0a] text-white px-3 py-2 text-2xs font-mono shadow-lg border border-white/5 rounded-lg"
             style={{ 
               x, 
               y, 

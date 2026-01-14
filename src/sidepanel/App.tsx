@@ -211,10 +211,40 @@ export default function App() {
         const settings = getSettings();
         setTheme(settings.theme);
         document.documentElement.dataset.theme = settings.theme;
+        
+        // Immediately update icon when side panel loads
+        if (isExtensionContextValid() && chrome.runtime) {
+            chrome.runtime.sendMessage({ 
+                type: 'UPDATE_ICON', 
+                theme: settings.theme 
+            }).catch(() => {
+                // Ignore errors if background script isn't ready
+            });
+        }
     }, []);
 
     useEffect(() => {
         document.documentElement.dataset.theme = theme;
+        
+        // Update favicon based on theme
+        const faviconLink = document.getElementById('favicon') as HTMLLinkElement;
+        if (faviconLink) {
+            if (theme === 'light') {
+                faviconLink.href = chrome.runtime.getURL('src/assets/icons/icon-light-128.png');
+            } else {
+                faviconLink.href = chrome.runtime.getURL('src/assets/icons/favicon_256.png');
+            }
+        }
+        
+        // Notify background script to update extension icon (which also updates side panel header)
+        if (isExtensionContextValid() && chrome.runtime) {
+            chrome.runtime.sendMessage({ 
+                type: 'UPDATE_ICON', 
+                theme 
+            }).catch(() => {
+                // Ignore errors if background script isn't ready
+            });
+        }
     }, [theme]);
 
     useEffect(() => {

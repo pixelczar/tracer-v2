@@ -510,6 +510,18 @@ function performDetection(
         }
     }
 
+    // Tilda: Require URL pattern or meta tag (not just script mentions) to reduce false positives
+    // High-end design sites often include third-party scripts that mention tilda.cc but aren't Tilda sites
+    if (findings.has('Tilda')) {
+        const isTildaSite = /\.tilda\.ws$/.test(currentUrl);
+        const hasTildaMeta = document.querySelector('meta[name="generator"][content*="tilda" i]');
+        const hasTildaDom = document.querySelector('[class*="t-rec"], [class*="t-cover"]');
+        // Require URL pattern OR (meta tag AND DOM pattern) - not just script mentions
+        if (!isTildaSite && !(hasTildaMeta && hasTildaDom)) {
+            findings.delete('Tilda');
+        }
+    }
+
     // ========== PAYMENT SERVICES FALSE POSITIVE MITIGATION ==========
     // If multiple payment services detected, require strong signals (globals or specific script domains)
     const paymentServices = ['Stripe', 'PayPal', 'Paddle', 'LemonSqueezy', 'Gumroad'];
