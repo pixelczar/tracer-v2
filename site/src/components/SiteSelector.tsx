@@ -11,21 +11,6 @@ interface SiteSelectorProps {
 export function SiteSelector({ sites, activeIndex, progress, onSelect }: SiteSelectorProps) {
   return (
     <div className="bg-faint/50 rounded-xl border border-white/5 overflow-hidden">
-      {/* Site Selector */}
-      <div className="max-w-6xl mx-auto">
-
-          <p className="mt-8 text-lg md:text-xl text-muted max-w-xl leading-relaxed">
-            See how any website is built — <span className="text-fg">colors</span>,{' '}
-            <span className="text-fg">typography</span>, and{' '}
-            <span className="text-fg">tech stack</span> for design engineers.<BlinkingCursor className="ml-1" />
-          </p>
-        </div>
-      <SiteSelector
-        sites={sites}
-        activeIndex={activeIndex}
-        progress={progress}
-        onSelect={onSelect}
-      />
       {/* Browser chrome */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-black/20">
         <div className="flex gap-1.5">
