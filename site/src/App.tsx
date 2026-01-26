@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { sites } from './data/sites'
 import { TracerPanel } from './components/TracerPanel'
-import { SiteSelector } from './components/SiteSelector'
+import { BrowserMockup } from './components/BrowserMockup'
 import { Logo } from './components/Logo'
+import { BlinkingCursor } from './components/BlinkingCursor'
 
 const CHROME_STORE_URL = 'https://chromewebstore.google.com/detail/tracer/bngjllbgijacoakfcbcflhbedmdkegdo'
 const AUTO_CYCLE_INTERVAL = 6000
@@ -53,23 +54,42 @@ function App() {
   return (
     <div className="min-h-screen bg-bg text-fg">
       {/* Hero */}
-      <header className="pt-16 pb-8 px-6 md:pt-24 md:pb-12">
-        <div className="max-w-6xl mx-auto">
+      <header className="pb-8 px-6 pt-6 md:pb-12">
+        <div className="mx-auto">
           <Logo />
         </div>
       </header>
 
       {/* Demo */}
-      <main className="px-6 pb-12">
+      <main className="px-6 pb-20">
         <div className="max-w-6xl mx-auto">
+          {/* Headline + CTA row */}
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-8">
+            <p className="text-lg md:text-xl text-muted max-w-xl leading-relaxed">
+              See how any website is built — <span className="text-fg">colors</span>,{' '}
+              <span className="text-fg">typography</span>, and{' '}
+              <span className="text-fg">tech stack</span> for design engineers.<BlinkingCursor className="ml-1" />
+            </p>
+            <a
+              href={CHROME_STORE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-3 px-5 py-2.5 bg-accent text-black text-sm font-semibold rounded-lg hover:scale-[1.02] hover:shadow-[0_8px_30px_rgba(234,255,0,0.25)] active:scale-100 transition-all duration-200 flex-shrink-0"
+            >
+              <ChromeIcon />
+              Add to Chrome — Free
+            </a>
+          </div>
+
+          {/* Browser + Side Panel (connected like Chrome) */}
           <div
-            className="flex flex-col lg:flex-row gap-6 lg:gap-8"
+            className="flex rounded-xl overflow-hidden border border-white/10 bg-[#1a1d21] shadow-2xl shadow-black/50"
             onMouseEnter={() => setIsPaused(true)}
             onMouseLeave={() => setIsPaused(false)}
           >
-            {/* Site Selector - fluid */}
-            <div className="flex-1 min-w-0">
-              <SiteSelector
+            {/* Browser area */}
+            <div className="flex-1 min-w-0 flex flex-col">
+              <BrowserMockup
                 sites={sites}
                 activeIndex={activeIndex}
                 progress={progress}
@@ -77,37 +97,31 @@ function App() {
               />
             </div>
 
-            {/* Tracer Panel - fixed width */}
-            <div className="w-full lg:w-[340px] flex-shrink-0">
+            {/* Side Panel (Tracer) */}
+            <div className="w-[320px] flex-shrink-0 border-l border-white/10 hidden lg:block">
               <AnimatePresence mode="wait">
                 <TracerPanel
                   key={`${activeSite.id}-${refreshKey}`}
                   site={activeSite}
                   onRefresh={handleRefresh}
+                  embedded
                 />
               </AnimatePresence>
             </div>
           </div>
+
+          {/* Mobile panel */}
+          <div className="mt-6 lg:hidden">
+            <AnimatePresence mode="wait">
+              <TracerPanel
+                key={`${activeSite.id}-${refreshKey}-mobile`}
+                site={activeSite}
+                onRefresh={handleRefresh}
+              />
+            </AnimatePresence>
+          </div>
         </div>
       </main>
-
-      {/* CTA */}
-      <footer className="px-6 pb-20">
-        <div className="max-w-6xl mx-auto flex flex-col items-start gap-4">
-          <a
-            href={CHROME_STORE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-3 px-6 py-3 bg-accent text-black font-semibold rounded-lg hover:scale-[1.02] hover:shadow-[0_8px_30px_rgba(234,255,0,0.25)] active:scale-100 transition-all duration-200"
-          >
-            <ChromeIcon />
-            Add to Chrome
-          </a>
-          <span className="text-xs text-muted font-mono uppercase tracking-wider">
-            Free on Chrome Web Store
-          </span>
-        </div>
-      </footer>
     </div>
   )
 }
