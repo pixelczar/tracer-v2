@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import type { SiteData } from '../data/sites'
+import { BlinkingCursor } from './BlinkingCursor'
 
 interface SiteSelectorProps {
   sites: SiteData[]
@@ -10,8 +11,17 @@ interface SiteSelectorProps {
 
 export function SiteSelector({ sites, activeIndex, progress, onSelect }: SiteSelectorProps) {
   return (
-    <div className="bg-faint/50 rounded-xl border border-white/5 overflow-hidden">
-      {/* Browser chrome */}
+    <div className="flex flex-col">
+      {/* Blurb */}
+      <p className="text-lg md:text-xl text-muted max-w-xl leading-relaxed mb-6">
+        See how any website is built — <span className="text-fg">colors</span>,{' '}
+        <span className="text-fg">typography</span>, and{' '}
+        <span className="text-fg">tech stack</span> for design engineers.<BlinkingCursor className="ml-1" />
+      </p>
+
+      {/* Browser mockup */}
+      <div className="bg-faint/50 rounded-xl border border-white/5 overflow-hidden flex-1">
+        {/* Browser chrome */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-black/20">
         <div className="flex gap-1.5">
           <div className="w-3 h-3 rounded-full bg-white/10" />
@@ -121,6 +131,7 @@ export function SiteSelector({ sites, activeIndex, progress, onSelect }: SiteSel
             {sites[activeIndex].tech.length} technologies detected
           </p>
         </motion.div>
+      </div>
       </div>
     </div>
   )

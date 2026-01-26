@@ -63,26 +63,30 @@ function App() {
       <main className="px-6 pb-12">
         <div className="max-w-6xl mx-auto">
           <div
-            className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8"
+            className="flex flex-col lg:flex-row gap-6 lg:gap-8"
             onMouseEnter={() => setIsPaused(true)}
             onMouseLeave={() => setIsPaused(false)}
           >
-            {/* Site Selector */}
-            <SiteSelector
-              sites={sites}
-              activeIndex={activeIndex}
-              progress={progress}
-              onSelect={handleSiteSelect}
-            />
-
-            {/* Tracer Panel */}
-            <AnimatePresence mode="wait">
-              <TracerPanel
-                key={`${activeSite.id}-${refreshKey}`}
-                site={activeSite}
-                onRefresh={handleRefresh}
+            {/* Site Selector - fluid */}
+            <div className="flex-1 min-w-0">
+              <SiteSelector
+                sites={sites}
+                activeIndex={activeIndex}
+                progress={progress}
+                onSelect={handleSiteSelect}
               />
-            </AnimatePresence>
+            </div>
+
+            {/* Tracer Panel - fixed width */}
+            <div className="w-full lg:w-[340px] flex-shrink-0">
+              <AnimatePresence mode="wait">
+                <TracerPanel
+                  key={`${activeSite.id}-${refreshKey}`}
+                  site={activeSite}
+                  onRefresh={handleRefresh}
+                />
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       </main>
