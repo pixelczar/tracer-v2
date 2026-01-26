@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import type { SiteData } from '../data/sites'
+import { CursorBubble } from './CursorBubble'
 
 interface BrowserMockupProps {
   sites: SiteData[]
@@ -9,8 +11,16 @@ interface BrowserMockupProps {
 }
 
 export function BrowserMockup({ sites, activeIndex, progress, onSelect }: BrowserMockupProps) {
+  const [isHovered, setIsHovered] = useState(false)
+
   return (
-    <div className="flex flex-col h-full">
+    <div
+      className="flex flex-col h-full"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <CursorBubble visible={isHovered} />
+
       {/* Chrome tab bar */}
       <div className="flex items-end gap-0 px-2 pt-2 bg-[#202124]">
         {sites.map((site, index) => {
@@ -20,7 +30,7 @@ export function BrowserMockup({ sites, activeIndex, progress, onSelect }: Browse
               key={site.id}
               onClick={() => onSelect(index)}
               className={`
-                relative group flex items-center gap-2 px-3 py-2 text-xs font-medium transition-colors min-w-[120px] max-w-[180px]
+                relative flex items-center gap-2 px-3 py-2 text-xs font-medium transition-colors min-w-[100px] max-w-[160px]
                 ${isActive
                   ? 'bg-[#1a1d21] text-fg rounded-t-lg'
                   : 'text-muted hover:bg-white/5 rounded-t-lg'
@@ -37,13 +47,6 @@ export function BrowserMockup({ sites, activeIndex, progress, onSelect }: Browse
               />
               <span className="truncate flex-1 text-left">{site.name.replace('.com', '').replace('.ai', '')}</span>
 
-              {/* Close button */}
-              <span className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${isActive ? 'hover:bg-white/10' : 'opacity-0 group-hover:opacity-100 hover:bg-white/10'} transition-all`}>
-                <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                  <path d="M1 1L7 7M7 1L1 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              </span>
-
               {/* Progress bar for active tab */}
               {isActive && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-transparent overflow-hidden">
@@ -59,55 +62,41 @@ export function BrowserMockup({ sites, activeIndex, progress, onSelect }: Browse
         })}
 
         {/* New tab button */}
-        <button className="w-7 h-7 rounded-full flex items-center justify-center text-muted hover:bg-white/5 transition-colors ml-1 mb-1">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M6 1V11M1 6H11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        <button className="w-6 h-6 rounded flex items-center justify-center text-muted hover:bg-white/5 transition-colors ml-1 mb-1">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <path d="M5 1V9M1 5H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
           </svg>
         </button>
       </div>
 
       {/* URL bar */}
-      <div className="flex items-center gap-3 px-3 py-2 bg-[#1a1d21] border-b border-white/5">
+      <div className="flex items-center gap-2 px-2 py-1.5 bg-[#1a1d21]">
         {/* Nav buttons */}
-        <div className="flex items-center gap-1">
-          <button className="w-7 h-7 rounded-full flex items-center justify-center text-muted/50">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M9 3L5 7L9 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <div className="flex items-center">
+          <button className="w-6 h-6 rounded flex items-center justify-center text-muted/40">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M8 2L4 6L8 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
-          <button className="w-7 h-7 rounded-full flex items-center justify-center text-muted/50">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M5 3L9 7L5 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          <button className="w-6 h-6 rounded flex items-center justify-center text-muted/40">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
-          <button className="w-7 h-7 rounded-full flex items-center justify-center text-muted hover:bg-white/5 transition-colors">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M2.5 7C2.5 4.51472 4.51472 2.5 7 2.5C8.5 2.5 9.8 3.2 10.6 4.3M11.5 7C11.5 9.48528 9.48528 11.5 7 11.5C5.5 11.5 4.2 10.8 3.4 9.7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <button className="w-6 h-6 rounded flex items-center justify-center text-muted hover:bg-white/5 transition-colors">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2 6a4 4 0 0 1 4-4 4.5 4.5 0 0 1 3 1.2M10 6a4 4 0 0 1-4 4 4.5 4.5 0 0 1-3-1.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
           </button>
         </div>
 
         {/* URL input */}
-        <div className="flex-1 flex items-center gap-2 bg-[#292c31] rounded-full px-4 py-1.5">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-muted/70 flex-shrink-0">
-            <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.5"/>
-            <path d="M9.5 9.5L12.5 12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        <div className="flex-1 flex items-center gap-2 bg-[#292c31] rounded-full px-3 py-1">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-muted/60 flex-shrink-0">
+            <circle cx="5" cy="5" r="4" stroke="currentColor" strokeWidth="1.5"/>
+            <path d="M8 8L11 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
           </svg>
-          <span className="text-sm text-fg/80 truncate">{sites[activeIndex].url.replace('https://', '')}</span>
-        </div>
-
-        {/* Right icons */}
-        <div className="flex items-center gap-1">
-          <button className="w-7 h-7 rounded-full flex items-center justify-center text-muted hover:bg-white/5 transition-colors">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M7 1L7 3M7 11L7 13M1 7H3M11 7H13M2.75 2.75L4.17 4.17M9.83 9.83L11.25 11.25M11.25 2.75L9.83 4.17M4.17 9.83L2.75 11.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          </button>
-          <button className="w-7 h-7 rounded-full flex items-center justify-center text-muted hover:bg-white/5 transition-colors">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M10.5 7.5L7 11L3.5 7.5M7 1V10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
+          <span className="text-xs text-fg/70 truncate">{sites[activeIndex].url.replace('https://', '')}</span>
         </div>
       </div>
 
@@ -118,7 +107,7 @@ export function BrowserMockup({ sites, activeIndex, progress, onSelect }: Browse
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.4 }}
-          className="w-full h-full p-6"
+          className="w-full h-full p-4"
         >
           <svg className="w-full h-full" viewBox="0 0 500 340" fill="none" preserveAspectRatio="xMidYMid meet">
             {/* Sidebar */}
@@ -164,7 +153,7 @@ export function BrowserMockup({ sites, activeIndex, progress, onSelect }: Browse
               transition={{ delay: 0.4 }}
             />
 
-            {/* Scan line effect - slower */}
+            {/* Scan line effect */}
             <motion.rect
               x="48" y="0" width="452" height="2"
               className="fill-accent/15"
@@ -176,10 +165,10 @@ export function BrowserMockup({ sites, activeIndex, progress, onSelect }: Browse
         </motion.div>
 
         {/* Corner markers */}
-        <div className="absolute top-3 left-3 w-4 h-4 border-l border-t border-accent/30" />
-        <div className="absolute top-3 right-3 w-4 h-4 border-r border-t border-accent/30" />
-        <div className="absolute bottom-3 left-3 w-4 h-4 border-l border-b border-accent/30" />
-        <div className="absolute bottom-3 right-3 w-4 h-4 border-r border-b border-accent/30" />
+        <div className="absolute top-2 left-2 w-3 h-3 border-l border-t border-accent/30" />
+        <div className="absolute top-2 right-2 w-3 h-3 border-r border-t border-accent/30" />
+        <div className="absolute bottom-2 left-2 w-3 h-3 border-l border-b border-accent/30" />
+        <div className="absolute bottom-2 right-2 w-3 h-3 border-r border-b border-accent/30" />
       </div>
     </div>
   )
