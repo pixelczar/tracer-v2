@@ -1,162 +1,263 @@
-import { useState, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useRef, useEffect } from 'react'
+import { motion, AnimatePresence, useMotionValue, useSpring } from 'framer-motion'
 
 interface ColorSwatchesProps {
   colors: string[]
 }
 
-// Convert hex to other formats
-function hexToRgba(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
+const sexyEase = [0.16, 1, 0.3, 1] as const
+
+// Color conversion utilities (same as real Tracer)
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  return result
+    ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) }
+    : { r: 0, g: 0, b: 0 }
+}
+
+function rgbToRgba(hex: string): string {
+  const { r, g, b } = hexToRgb(hex)
   return `rgba(${r}, ${g}, ${b}, 1)`
 }
 
-function hexToHsl(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16) / 255
-  const g = parseInt(hex.slice(3, 5), 16) / 255
-  const b = parseInt(hex.slice(5, 7), 16) / 255
-
-  const max = Math.max(r, g, b)
-  const min = Math.min(r, g, b)
-  let h = 0
-  let s = 0
+function rgbToHsl(hex: string): string {
+  const { r, g, b } = hexToRgb(hex)
+  const rNorm = r / 255, gNorm = g / 255, bNorm = b / 255
+  const max = Math.max(rNorm, gNorm, bNorm), min = Math.min(rNorm, gNorm, bNorm)
+  let h = 0, s = 0
   const l = (max + min) / 2
-
   if (max !== min) {
     const d = max - min
     s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
     switch (max) {
-      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break
-      case g: h = ((b - r) / d + 2) / 6; break
-      case b: h = ((r - g) / d + 4) / 6; break
+      case rNorm: h = ((gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0)) / 6; break
+      case gNorm: h = ((bNorm - rNorm) / d + 2) / 6; break
+      case bNorm: h = ((rNorm - gNorm) / d + 4) / 6; break
     }
   }
-
   return `hsl(${Math.round(h * 360)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`
 }
 
-function hexToOklch(hex: string): string {
-  // Simplified oklch approximation
-  const r = parseInt(hex.slice(1, 3), 16) / 255
-  const g = parseInt(hex.slice(3, 5), 16) / 255
-  const b = parseInt(hex.slice(5, 7), 16) / 255
+function rgbToOklch(hex: string): string {
+  const { r, g, b } = hexToRgb(hex)
+  const linearR = r / 255, linearG = g / 255, linearB = b / 255
+  const srgbR = linearR <= 0.04045 ? linearR / 12.92 : Math.pow((linearR + 0.055) / 1.055, 2.4)
+  const srgbG = linearG <= 0.04045 ? linearG / 12.92 : Math.pow((linearG + 0.055) / 1.055, 2.4)
+  const srgbB = linearB <= 0.04045 ? linearB / 12.92 : Math.pow((linearB + 0.055) / 1.055, 2.4)
+  const labL = 0.4122214708 * srgbR + 0.5363325363 * srgbG + 0.0514459929 * srgbB
+  const labM = 0.2119034982 * srgbR + 0.6806995451 * srgbG + 0.1073969566 * srgbB
+  const labS = 0.0883024619 * srgbR + 0.2817188376 * srgbG + 0.6299787005 * srgbB
+  const l_ = Math.cbrt(labL), m_ = Math.cbrt(labM), s_ = Math.cbrt(labS)
+  const L = 0.2104542553 * l_ + 0.793617785 * m_ - 0.0040720468 * s_
+  const a = 1.9779984951 * l_ - 2.428592205 * m_ + 0.4505937099 * s_
+  const bLab = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.808675766 * s_
+  const C = Math.sqrt(a * a + bLab * bLab)
+  let h = Math.atan2(bLab, a) * (180 / Math.PI)
+  if (h < 0) h += 360
+  return `oklch(${L.toFixed(2)} ${C.toFixed(2)} ${h.toFixed(2)})`
+}
 
-  const l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b
-  const L = Math.cbrt(l)
+// Cursor-following tooltip
+function ColorTooltip({ hex, visible, copiedFormatKey }: { hex: string; visible: boolean; copiedFormatKey: string | null }) {
+  const cursorX = useMotionValue(0)
+  const cursorY = useMotionValue(0)
+  const springConfig = { damping: 25, stiffness: 400 }
+  const x = useSpring(cursorX, springConfig)
+  const y = useSpring(cursorY, springConfig)
 
-  return `oklch(${(L).toFixed(2)} 0.${Math.round(Math.random() * 20 + 10)} ${Math.round(Math.random() * 360)})`
+  useEffect(() => {
+    if (!visible) return
+    const move = (e: MouseEvent) => {
+      cursorX.set(e.clientX + 12)
+      cursorY.set(e.clientY + 12)
+    }
+    window.addEventListener('mousemove', move)
+    return () => window.removeEventListener('mousemove', move)
+  }, [visible, cursorX, cursorY])
+
+  const formats = [
+    { key: 'hex', value: hex.toUpperCase() },
+    { key: 'rgba', value: rgbToRgba(hex) },
+    { key: 'oklch', value: rgbToOklch(hex) },
+    { key: 'hsl', value: rgbToHsl(hex) },
+  ]
+
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          className="fixed top-0 left-0 pointer-events-none z-[9999] bg-[#0a0a0a] text-white px-3 py-2 text-[10px] font-mono shadow-lg border border-white/5 rounded-lg"
+          style={{ x, y }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15, ease: sexyEase }}
+        >
+          <div className="flex flex-col gap-1">
+            {formats.map((format) => {
+              const isCopied = copiedFormatKey === format.key
+              const isHex = format.key === 'hex'
+              return (
+                <div key={format.key} className={isHex ? 'uppercase tracking-wider text-white' : 'text-white/70'}>
+                  <AnimatePresence mode="wait" initial={false}>
+                    {isCopied ? (
+                      <motion.span
+                        key="copied"
+                        initial={{ opacity: 0, y: 2 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -2 }}
+                        transition={{ duration: 0.3, ease: sexyEase }}
+                      >
+                        COPIED
+                      </motion.span>
+                    ) : (
+                      <motion.span
+                        key="value"
+                        initial={{ opacity: 0, y: 2 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -2 }}
+                        transition={{ duration: 0.3, ease: sexyEase }}
+                      >
+                        {format.value}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )
+            })}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
 }
 
 export function ColorSwatches({ colors }: ColorSwatchesProps) {
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
+  const [hoveredHex, setHoveredHex] = useState<string | null>(null)
+  const [copiedFormatKey, setCopiedFormatKey] = useState<string | null>(null)
+  const [formatKeyMap, setFormatKeyMap] = useState<Map<string, string>>(new Map())
+  const [selectorPosition, setSelectorPosition] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const swatchRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const copyColor = async (color: string, index: number) => {
-    await navigator.clipboard.writeText(color)
-    setCopiedIndex(index)
-    setTimeout(() => setCopiedIndex(null), 1500)
+  // Large swatches for first 2 prominent colors
+  const maxLarge = 2
+  let largeCount = 0
+
+  const handleCopy = (hex: string) => {
+    const formats = ['hex', 'rgba', 'oklch', 'hsl']
+    const currentFormatKey = formatKeyMap.get(hex) ?? 'hex'
+    const currentIndex = formats.indexOf(currentFormatKey)
+    const formatValues: Record<string, string> = {
+      hex: hex.toUpperCase(),
+      rgba: rgbToRgba(hex),
+      oklch: rgbToOklch(hex),
+      hsl: rgbToHsl(hex),
+    }
+    navigator.clipboard.writeText(formatValues[currentFormatKey])
+    if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current)
+    setCopiedFormatKey(currentFormatKey)
+    setHoveredHex(hex)
+    const nextIndex = (currentIndex + 1) % formats.length
+    setFormatKeyMap(new Map(formatKeyMap.set(hex, formats[nextIndex])))
+    copyTimeoutRef.current = setTimeout(() => setCopiedFormatKey(null), 800)
   }
 
-  // Split colors into two rows - prominent (first 2-3) and secondary
-  const prominentColors = colors.slice(0, Math.min(3, colors.length))
-  const secondaryColors = colors.slice(Math.min(3, colors.length))
+  // Update selector position
+  useEffect(() => {
+    if (!hoveredHex) {
+      setSelectorPosition(null)
+      return
+    }
+    const swatchElement = swatchRefs.current.get(hoveredHex)
+    const containerElement = containerRef.current
+    if (swatchElement && containerElement) {
+      const swatchRect = swatchElement.getBoundingClientRect()
+      const containerRect = containerElement.getBoundingClientRect()
+      setSelectorPosition({
+        x: swatchRect.left - containerRect.left,
+        y: swatchRect.top - containerRect.top,
+        width: swatchRect.width,
+        height: swatchRect.height,
+      })
+    }
+  }, [hoveredHex])
 
-  const renderSwatch = (color: string, index: number, isLarge: boolean) => {
-    const globalIndex = index
-    const isHovered = hoveredIndex === globalIndex
-    const isSelected = selectedIndex === globalIndex
+  return (
+    <>
+      <ColorTooltip hex={hoveredHex || ''} visible={hoveredHex !== null || copiedFormatKey !== null} copiedFormatKey={copiedFormatKey} />
+      <div ref={containerRef} className="relative">
+        <motion.div
+          initial="hidden"
+          animate="show"
+          variants={{ show: { transition: { staggerChildren: 0.04, delayChildren: 0.1 } } }}
+          className="grid grid-cols-9 gap-1.5"
+          style={{ gridAutoRows: '24px' }}
+        >
+          {colors.map((color, index) => {
+            // First 2 high-weight colors are large
+            const shouldBeLarge = index < 2 && largeCount < maxLarge
+            if (shouldBeLarge) largeCount++
 
-    return (
-      <motion.button
-        key={`${color}-${index}`}
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{
-          delay: index * 0.03,
-          type: 'spring',
-          stiffness: 500,
-          damping: 30,
-        }}
-        onClick={() => {
-          copyColor(color, globalIndex)
-          setSelectedIndex(globalIndex)
-        }}
-        onMouseEnter={() => setHoveredIndex(globalIndex)}
-        onMouseLeave={() => setHoveredIndex(null)}
-        className={`
-          relative rounded cursor-pointer transition-all duration-150
-          ${isLarge ? 'w-14 h-10' : 'w-8 h-8'}
-          ${isSelected ? 'ring-2 ring-white/50 ring-offset-1 ring-offset-[#1a1d21]' : ''}
-        `}
-        style={{ backgroundColor: color }}
-      >
-        {/* Border for light colors and hover state */}
-        <div
-          className={`
-            absolute inset-0 rounded transition-all duration-150
-            ${isHovered ? 'border-2 border-dashed border-white/60' : 'border border-white/[0.08]'}
-          `}
-        />
+            return (
+              <motion.button
+                key={color}
+                ref={(el) => {
+                  if (el) swatchRefs.current.set(color, el)
+                  else swatchRefs.current.delete(color)
+                }}
+                onClick={() => handleCopy(color)}
+                onMouseEnter={() => {
+                  if (copiedFormatKey === null) {
+                    setHoveredHex(color)
+                    if (!formatKeyMap.has(color)) {
+                      setFormatKeyMap(new Map(formatKeyMap.set(color, 'hex')))
+                    }
+                  }
+                }}
+                onMouseLeave={() => {
+                  if (copiedFormatKey === null) setHoveredHex(null)
+                }}
+                variants={{
+                  hidden: { opacity: 0, y: 8, scale: 0.95 },
+                  show: { opacity: 1, y: 0, scale: 1 },
+                }}
+                transition={{ duration: 0.7, ease: sexyEase }}
+                className={`relative cursor-pointer rounded-sm ${shouldBeLarge ? 'col-span-2 row-span-2' : ''}`}
+                style={{ backgroundColor: color }}
+              >
+                <div className="absolute inset-0 rounded-sm ring-1 ring-inset ring-black/20 pointer-events-none" />
+              </motion.button>
+            )
+          })}
+        </motion.div>
 
-        {/* Copy feedback */}
+        {/* Animated corner selector */}
         <AnimatePresence>
-          {copiedIndex === globalIndex && (
+          {selectorPosition && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              className="absolute inset-0 rounded bg-black/40 flex items-center justify-center"
+              className="absolute pointer-events-none"
+              initial={{ opacity: 0 }}
+              animate={{
+                opacity: 1,
+                left: selectorPosition.x,
+                top: selectorPosition.y,
+                width: selectorPosition.width,
+                height: selectorPosition.height,
+              }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1], opacity: { duration: 0.15 } }}
             >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-white">
-                <path d="M3 7L6 10L11 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+              {/* Corner brackets */}
+              <div className="absolute w-2 h-2" style={{ top: -2, left: -2, borderTop: '1px solid rgba(240,240,240,0.8)', borderLeft: '1px solid rgba(240,240,240,0.8)' }} />
+              <div className="absolute w-2 h-2" style={{ top: -2, right: -2, borderTop: '1px solid rgba(240,240,240,0.8)', borderRight: '1px solid rgba(240,240,240,0.8)' }} />
+              <div className="absolute w-2 h-2" style={{ bottom: -2, left: -2, borderBottom: '1px solid rgba(240,240,240,0.8)', borderLeft: '1px solid rgba(240,240,240,0.8)' }} />
+              <div className="absolute w-2 h-2" style={{ bottom: -2, right: -2, borderBottom: '1px solid rgba(240,240,240,0.8)', borderRight: '1px solid rgba(240,240,240,0.8)' }} />
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.button>
-    )
-  }
-
-  return (
-    <div ref={containerRef} className="relative">
-      {/* Two rows of swatches */}
-      <div className="space-y-2">
-        {/* Prominent colors - larger */}
-        <div className="flex gap-1.5">
-          {prominentColors.map((color, i) => renderSwatch(color, i, true))}
-        </div>
-
-        {/* Secondary colors - smaller */}
-        {secondaryColors.length > 0 && (
-          <div className="flex gap-1.5 flex-wrap">
-            {secondaryColors.map((color, i) => renderSwatch(color, i + prominentColors.length, false))}
-          </div>
-        )}
       </div>
-
-      {/* Rich tooltip */}
-      <AnimatePresence>
-        {hoveredIndex !== null && (
-          <motion.div
-            initial={{ opacity: 0, y: 4, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 4, scale: 0.95 }}
-            transition={{ duration: 0.15 }}
-            className="absolute z-50 top-full left-0 mt-2 bg-[#0a0b0c] border border-white/10 rounded-lg px-3 py-2.5 shadow-xl"
-          >
-            <div className="space-y-1 font-mono text-xs">
-              <div className="text-fg font-medium">{colors[hoveredIndex].toUpperCase()}</div>
-              <div className="text-muted">{hexToRgba(colors[hoveredIndex])}</div>
-              <div className="text-muted">{hexToOklch(colors[hoveredIndex])}</div>
-              <div className="text-muted">{hexToHsl(colors[hoveredIndex])}</div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+    </>
   )
 }

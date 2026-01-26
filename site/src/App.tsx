@@ -57,11 +57,6 @@ function App() {
       <header className="pt-16 pb-8 px-6 md:pt-24 md:pb-12">
         <div className="max-w-6xl mx-auto">
           <Logo />
-          <p className="mt-8 text-lg md:text-xl text-muted max-w-xl leading-relaxed">
-            See how any website is built — <span className="text-fg">colors</span>,{' '}
-            <span className="text-fg">typography</span>, and{' '}
-            <span className="text-fg">tech stack</span> for design engineers.<BlinkingCursor className="ml-1" />
-          </p>
         </div>
       </header>
 

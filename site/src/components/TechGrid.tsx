@@ -1,9 +1,14 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
+
+const sexyEase = [0.16, 1, 0.3, 1] as const
 
 interface Tech {
   name: string
   category: string
   icon?: string
+  isSignal?: boolean
+  url?: string
 }
 
 interface TechGridProps {
@@ -38,49 +43,86 @@ const techIcons: Record<string, string> = {
   datadog: 'https://cdn.simpleicons.org/datadog/632CA6',
 }
 
+function TechItem({ tech }: { tech: Tech }) {
+  const [iconError, setIconError] = useState(false)
+  const iconUrl = tech.icon ? techIcons[tech.icon] : null
+
+  return (
+    <div className="flex flex-col py-1.5 border-b border-white/[0.06] last:border-0 min-w-0 w-full group">
+      <div className="flex items-center gap-2 min-w-0 w-full">
+        {/* Icon - 12x12 like real Tracer */}
+        <div className="flex-shrink-0 w-3 h-3 flex items-center justify-center">
+          {iconUrl && !iconError ? (
+            <img
+              src={iconUrl}
+              alt=""
+              className="w-3 h-3 object-contain rounded-sm"
+              loading="lazy"
+              onError={() => setIconError(true)}
+            />
+          ) : (
+            <div className="w-3 h-3 rounded-sm bg-muted/40 flex items-center justify-center">
+              <div className="w-1.5 h-1.5 rounded-full bg-muted/60" />
+            </div>
+          )}
+        </div>
+
+        {/* Name + Signal star + Link */}
+        <span className={`flex items-center gap-1 text-[13px] min-w-0 overflow-hidden ${tech.isSignal ? 'font-semibold text-fg' : 'font-medium text-fg/90'}`}>
+          <span className="truncate min-w-0" title={tech.name}>{tech.name}</span>
+          {tech.isSignal && (
+            <span className="text-accent text-[8px] flex-shrink-0 -ml-0.5 -mt-2 opacity-30 group-hover:opacity-100 transition-opacity">✦</span>
+          )}
+          <a
+            href={tech.url || `https://www.google.com/search?q=${encodeURIComponent(tech.name)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-muted opacity-0 group-hover:opacity-100 transition-all duration-300 hover:text-accent flex-shrink-0"
+            title={`Learn more about ${tech.name}`}
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M3.5 2H9.5V8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M9 2.5L2.5 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </a>
+        </span>
+
+        {/* Category label - right aligned */}
+        <span className="ml-auto text-[10px] font-mono text-muted uppercase flex-shrink-0 tracking-wider">
+          {tech.category}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 export function TechGrid({ tech }: TechGridProps) {
   return (
-    <div className="grid grid-cols-2 gap-x-3 gap-y-0">
-      {tech.map((item, index) => (
+    <motion.div
+      initial="hidden"
+      animate="show"
+      variants={{
+        show: {
+          transition: {
+            staggerChildren: 0.08,
+            delayChildren: 0.4,
+          },
+        },
+      }}
+      className="overflow-hidden"
+    >
+      {tech.map((item) => (
         <motion.div
           key={item.name}
-          initial={{ opacity: 0, x: 8 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{
-            delay: index * 0.025,
-            duration: 0.3,
-            ease: [0.22, 1, 0.36, 1],
+          variants={{
+            hidden: { opacity: 0, y: 6 },
+            show: { opacity: 1, y: 0 },
           }}
-          className="flex items-start gap-2 py-2 group cursor-default hover:bg-white/[0.02] -mx-1 px-1 rounded transition-colors"
+          transition={{ duration: 0.6, ease: sexyEase }}
         >
-          {/* Icon */}
-          <div className="w-4 h-4 flex items-center justify-center flex-shrink-0 mt-0.5">
-            {item.icon && techIcons[item.icon] ? (
-              <img
-                src={techIcons[item.icon]}
-                alt=""
-                className="w-4 h-4"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none'
-                  const fallback = e.currentTarget.nextElementSibling as HTMLElement
-                  if (fallback) fallback.classList.remove('hidden')
-                }}
-              />
-            ) : null}
-            <div className={`w-2.5 h-2.5 rounded-sm bg-muted/40 ${item.icon && techIcons[item.icon] ? 'hidden' : ''}`} />
-          </div>
-
-          {/* Name and category */}
-          <div className="min-w-0 flex-1">
-            <div className="text-sm text-fg truncate group-hover:text-accent transition-colors">
-              {item.name}
-            </div>
-            <div className="text-[10px] font-mono uppercase tracking-wider text-muted/70 truncate">
-              {item.category}
-            </div>
-          </div>
+          <TechItem tech={item} />
         </motion.div>
       ))}
-    </div>
+    </motion.div>
   )
 }

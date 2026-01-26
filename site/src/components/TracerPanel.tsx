@@ -16,7 +16,7 @@ export function TracerPanel({ site, onRefresh }: TracerPanelProps) {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="bg-[#1a1d21] border border-white/[0.08] rounded-lg overflow-hidden shadow-2xl shadow-black/50 flex flex-col"
+      className="bg-[#1a1d21] max-w-[360px] border border-white/[0.08] rounded-lg overflow-hidden shadow-2xl shadow-black/50 flex flex-col"
     >
       {/* Panel header - matches real Tracer */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-white/[0.06] bg-[#15181b]">

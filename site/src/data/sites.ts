@@ -14,6 +14,8 @@ export interface SiteData {
     name: string
     category: string
     icon?: string
+    isSignal?: boolean
+    url?: string
   }[]
 }
 
@@ -39,10 +41,10 @@ export const sites: SiteData[] = [
       },
     ],
     tech: [
-      { name: 'React', category: 'Framework', icon: 'react' },
-      { name: 'Next.js', category: 'Meta Framework', icon: 'nextjs' },
-      { name: 'WebGL', category: 'Graphics', icon: 'webgl' },
-      { name: 'WebAssembly', category: 'Runtime', icon: 'wasm' },
+      { name: 'React', category: 'Framework', icon: 'react', isSignal: true },
+      { name: 'Next.js', category: 'Meta Framework', icon: 'nextjs', isSignal: true },
+      { name: 'WebGL', category: 'Graphics', icon: 'webgl', isSignal: true },
+      { name: 'WebAssembly', category: 'Runtime', icon: 'wasm', isSignal: true },
       { name: 'Cloudflare', category: 'CDN', icon: 'cloudflare' },
       { name: 'Segment', category: 'Analytics', icon: 'segment' },
       { name: 'LaunchDarkly', category: 'Feature Flags', icon: 'launchdarkly' },
@@ -70,11 +72,11 @@ export const sites: SiteData[] = [
       },
     ],
     tech: [
-      { name: 'Next.js', category: 'Meta Framework', icon: 'nextjs' },
-      { name: 'React', category: 'Framework', icon: 'react' },
-      { name: 'Tailwind', category: 'Styling', icon: 'tailwind' },
+      { name: 'Next.js', category: 'Meta Framework', icon: 'nextjs', isSignal: true },
+      { name: 'React', category: 'Framework', icon: 'react', isSignal: true },
+      { name: 'Tailwind', category: 'Styling', icon: 'tailwind', isSignal: true },
       { name: 'Cloudflare', category: 'CDN', icon: 'cloudflare' },
-      { name: 'Tiptap', category: 'Rich Text', icon: 'tiptap' },
+      { name: 'Tiptap', category: 'Rich Text', icon: 'tiptap', isSignal: true },
       { name: 'Segment', category: 'Analytics', icon: 'segment' },
       { name: 'Intercom', category: 'Support', icon: 'intercom' },
       { name: 'Sentry', category: 'Monitoring', icon: 'sentry' },
@@ -101,9 +103,9 @@ export const sites: SiteData[] = [
       },
     ],
     tech: [
-      { name: 'Framer', category: 'Platform', icon: 'framer' },
-      { name: 'React', category: 'Framework', icon: 'react' },
-      { name: 'OpenAI', category: 'AI', icon: 'openai' },
+      { name: 'Framer', category: 'Platform', icon: 'framer', isSignal: true },
+      { name: 'React', category: 'Framework', icon: 'react', isSignal: true },
+      { name: 'OpenAI', category: 'AI', icon: 'openai', isSignal: true },
       { name: 'Cloudflare', category: 'CDN', icon: 'cloudflare' },
       { name: 'Stripe', category: 'Payments', icon: 'stripe' },
       { name: 'Segment', category: 'Analytics', icon: 'segment' },
@@ -130,9 +132,9 @@ export const sites: SiteData[] = [
       },
     ],
     tech: [
-      { name: 'React', category: 'Framework', icon: 'react' },
-      { name: 'Next.js', category: 'Meta Framework', icon: 'nextjs' },
-      { name: 'TypeScript', category: 'Language', icon: 'typescript' },
+      { name: 'React', category: 'Framework', icon: 'react', isSignal: true },
+      { name: 'Next.js', category: 'Meta Framework', icon: 'nextjs', isSignal: true },
+      { name: 'TypeScript', category: 'Language', icon: 'typescript', isSignal: true },
       { name: 'Contentful', category: 'CMS', icon: 'contentful' },
       { name: 'Segment', category: 'Analytics', icon: 'segment' },
       { name: 'Amplitude', category: 'Analytics', icon: 'amplitude' },
@@ -161,10 +163,10 @@ export const sites: SiteData[] = [
       },
     ],
     tech: [
-      { name: 'Next.js', category: 'Meta Framework', icon: 'nextjs' },
-      { name: 'React', category: 'Framework', icon: 'react' },
-      { name: 'Tailwind', category: 'Styling', icon: 'tailwind' },
-      { name: 'OpenAI', category: 'AI', icon: 'openai' },
+      { name: 'Next.js', category: 'Meta Framework', icon: 'nextjs', isSignal: true },
+      { name: 'React', category: 'Framework', icon: 'react', isSignal: true },
+      { name: 'Tailwind', category: 'Styling', icon: 'tailwind', isSignal: true },
+      { name: 'OpenAI', category: 'AI', icon: 'openai', isSignal: true },
       { name: 'Vercel', category: 'Hosting', icon: 'vercel' },
       { name: 'Supabase', category: 'Database', icon: 'supabase' },
       { name: 'Stripe', category: 'Payments', icon: 'stripe' },
