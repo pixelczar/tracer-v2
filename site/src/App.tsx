@@ -4,6 +4,7 @@ import { sites } from './data/sites'
 import { TracerPanel } from './components/TracerPanel'
 import { SiteSelector } from './components/SiteSelector'
 import { Logo } from './components/Logo'
+import { BlinkingCursor } from './components/BlinkingCursor'
 
 const CHROME_STORE_URL = 'https://chromewebstore.google.com/detail/tracer/bngjllbgijacoakfcbcflhbedmdkegdo'
 const AUTO_CYCLE_INTERVAL = 6000
@@ -54,7 +55,7 @@ function App() {
           <p className="mt-8 text-lg md:text-xl text-muted max-w-xl leading-relaxed">
             See how any website is built — <span className="text-fg">colors</span>,{' '}
             <span className="text-fg">typography</span>, and{' '}
-            <span className="text-fg">tech stack</span> for design engineers.
+            <span className="text-fg">tech stack</span> for design engineers.<BlinkingCursor className="ml-1" />
           </p>
         </div>
       </header>

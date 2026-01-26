@@ -83,7 +83,7 @@ export const sites: SiteData[] = [
   {
     id: 'florafauna',
     name: 'florafauna.com',
-    url: 'https://florafauna.com',
+    url: 'https://florafauna.ai',
     favicon: 'https://florafauna.com/favicon.ico',
     colors: ['#0F0F0F', '#FFFFFF', '#E8FF47', '#FF5C38', '#3D52FF', '#C4C4C4'],
     typography: [
