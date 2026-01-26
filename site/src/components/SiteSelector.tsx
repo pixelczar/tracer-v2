@@ -81,55 +81,116 @@ export function SiteSelector({ sites, activeIndex, progress, onSelect }: SiteSel
         ))}
       </div>
 
-      {/* Site preview area */}
-      <div className="aspect-[4/3] relative bg-gradient-to-br from-white/[0.02] to-transparent p-8 flex items-center justify-center">
+      {/* Site preview area - blueprint wireframe */}
+      <div className="aspect-[4/3] relative p-6 overflow-hidden">
         <motion.div
           key={sites[activeIndex].id}
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 1.05 }}
-          transition={{ duration: 0.3 }}
-          className="text-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.4 }}
+          className="w-full h-full relative"
         >
-          {/* Stylized site representation */}
-          <div className="mb-6 flex justify-center">
-            <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold"
-              style={{
-                background: `linear-gradient(135deg, ${sites[activeIndex].colors[2] || sites[activeIndex].colors[0]}, ${sites[activeIndex].colors[3] || sites[activeIndex].colors[1]})`
-              }}
-            >
-              <img
-                src={sites[activeIndex].favicon}
-                alt=""
-                className="w-10 h-10"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none'
-                  e.currentTarget.parentElement!.textContent = sites[activeIndex].name[0].toUpperCase()
-                }}
-              />
-            </div>
-          </div>
+          {/* Blueprint wireframe layout */}
+          <svg className="w-full h-full" viewBox="0 0 400 300" fill="none" preserveAspectRatio="xMidYMid slice">
+            {/* Nav bar */}
+            <motion.rect
+              x="20" y="16" width="360" height="24" rx="2"
+              stroke="currentColor" strokeWidth="1" fill="none"
+              className="text-white/20"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+            />
+            <motion.rect
+              x="28" y="22" width="40" height="12" rx="1"
+              className="fill-white/10"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+            />
+            <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
+              <rect x="280" y="22" width="24" height="12" rx="1" className="fill-white/10" />
+              <rect x="310" y="22" width="24" height="12" rx="1" className="fill-white/10" />
+              <rect x="340" y="22" width="32" height="12" rx="2" className="fill-accent/30" />
+            </motion.g>
 
-          <h3 className="text-lg font-medium mb-2">{sites[activeIndex].name}</h3>
+            {/* Hero section */}
+            <motion.rect
+              x="20" y="56" width="360" height="100" rx="2"
+              stroke="currentColor" strokeWidth="1" fill="none"
+              className="text-white/15"
+              strokeDasharray="4 2"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+            />
+            <motion.rect
+              x="40" y="76" width="180" height="16" rx="1"
+              className="fill-white/10"
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: 1 }}
+              transition={{ delay: 0.5, duration: 0.4 }}
+              style={{ transformOrigin: 'left' }}
+            />
+            <motion.rect
+              x="40" y="100" width="140" height="8" rx="1"
+              className="fill-white/5"
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: 1 }}
+              transition={{ delay: 0.6, duration: 0.3 }}
+              style={{ transformOrigin: 'left' }}
+            />
+            <motion.rect
+              x="40" y="114" width="100" height="8" rx="1"
+              className="fill-white/5"
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: 1 }}
+              transition={{ delay: 0.65, duration: 0.3 }}
+              style={{ transformOrigin: 'left' }}
+            />
+            <motion.rect
+              x="40" y="134" width="60" height="20" rx="2"
+              className="fill-accent/20"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.8 }}
+            />
 
-          {/* Color preview dots */}
-          <div className="flex justify-center gap-1.5 mb-4">
-            {sites[activeIndex].colors.slice(0, 5).map((color, i) => (
-              <motion.div
-                key={color}
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: i * 0.05, type: 'spring', bounce: 0.5 }}
-                className="w-3 h-3 rounded-full border border-white/10"
-                style={{ backgroundColor: color }}
-              />
-            ))}
-          </div>
+            {/* Content grid */}
+            <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9 }}>
+              <rect x="20" y="172" width="112" height="80" rx="2" stroke="currentColor" strokeWidth="1" fill="none" className="text-white/15" />
+              <rect x="28" y="180" width="96" height="40" rx="1" className="fill-white/5" />
+              <rect x="28" y="228" width="60" height="6" rx="1" className="fill-white/10" />
+              <rect x="28" y="238" width="80" height="6" rx="1" className="fill-white/5" />
+            </motion.g>
+            <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.0 }}>
+              <rect x="144" y="172" width="112" height="80" rx="2" stroke="currentColor" strokeWidth="1" fill="none" className="text-white/15" />
+              <rect x="152" y="180" width="96" height="40" rx="1" className="fill-white/5" />
+              <rect x="152" y="228" width="60" height="6" rx="1" className="fill-white/10" />
+              <rect x="152" y="238" width="80" height="6" rx="1" className="fill-white/5" />
+            </motion.g>
+            <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1 }}>
+              <rect x="268" y="172" width="112" height="80" rx="2" stroke="currentColor" strokeWidth="1" fill="none" className="text-white/15" />
+              <rect x="276" y="180" width="96" height="40" rx="1" className="fill-white/5" />
+              <rect x="276" y="228" width="60" height="6" rx="1" className="fill-white/10" />
+              <rect x="276" y="238" width="80" height="6" rx="1" className="fill-white/5" />
+            </motion.g>
 
-          <p className="text-xs text-muted">
-            {sites[activeIndex].tech.length} technologies detected
-          </p>
+            {/* Scan line effect */}
+            <motion.rect
+              x="0" y="0" width="400" height="4"
+              className="fill-accent/20"
+              initial={{ y: 0 }}
+              animate={{ y: 300 }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+            />
+          </svg>
+
+          {/* Corner markers */}
+          <div className="absolute top-2 left-2 w-3 h-3 border-l border-t border-accent/40" />
+          <div className="absolute top-2 right-2 w-3 h-3 border-r border-t border-accent/40" />
+          <div className="absolute bottom-2 left-2 w-3 h-3 border-l border-b border-accent/40" />
+          <div className="absolute bottom-2 right-2 w-3 h-3 border-r border-b border-accent/40" />
         </motion.div>
       </div>
       </div>
