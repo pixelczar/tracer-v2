@@ -4,7 +4,6 @@ import { sites } from './data/sites'
 import { TracerPanel } from './components/TracerPanel'
 import { SiteSelector } from './components/SiteSelector'
 import { Logo } from './components/Logo'
-import { BlinkingCursor } from './components/BlinkingCursor'
 
 const CHROME_STORE_URL = 'https://chromewebstore.google.com/detail/tracer/bngjllbgijacoakfcbcflhbedmdkegdo'
 const AUTO_CYCLE_INTERVAL = 6000
