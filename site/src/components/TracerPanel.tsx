@@ -6,89 +6,113 @@ import { TechGrid } from './TechGrid'
 
 interface TracerPanelProps {
   site: SiteData
+  onRefresh?: () => void
 }
 
-export function TracerPanel({ site }: TracerPanelProps) {
+export function TracerPanel({ site, onRefresh }: TracerPanelProps) {
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="bg-bg border border-white/10 rounded-xl overflow-hidden shadow-2xl shadow-black/50"
+      className="bg-[#1a1d21] border border-white/[0.08] rounded-lg overflow-hidden shadow-2xl shadow-black/50 flex flex-col"
     >
-      {/* Panel header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-white/[0.02]">
+      {/* Panel header - matches real Tracer */}
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-white/[0.06] bg-[#15181b]">
         <div className="flex items-center gap-2">
-          <span className="text-accent font-mono text-sm font-medium">//</span>
-          <span className="text-sm font-medium">Tracer</span>
+          {/* Tracer slash icon */}
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-accent">
+            <path d="M4 12L8 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            <path d="M8 12L12 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+          <span className="text-sm font-medium text-fg">Tracer</span>
         </div>
-        <div className="flex items-center gap-1">
-          <div className="w-4 h-4 rounded hover:bg-white/5 flex items-center justify-center cursor-pointer">
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-muted">
-              <path d="M1 5H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        <div className="flex items-center gap-0.5">
+          {/* Pin button */}
+          <button className="w-7 h-7 rounded flex items-center justify-center text-muted hover:text-fg hover:bg-white/5 transition-colors">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M7 1V8M7 8L4 5M7 8L10 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" transform="rotate(45 7 7)"/>
             </svg>
-          </div>
-          <div className="w-4 h-4 rounded hover:bg-white/5 flex items-center justify-center cursor-pointer">
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-muted">
-              <rect x="1" y="1" width="8" height="8" stroke="currentColor" strokeWidth="1.5" rx="1"/>
+          </button>
+          {/* Close button */}
+          <button className="w-7 h-7 rounded flex items-center justify-center text-muted hover:text-fg hover:bg-white/5 transition-colors">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
-          </div>
-          <div className="w-4 h-4 rounded hover:bg-white/5 flex items-center justify-center cursor-pointer">
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-muted">
-              <path d="M2 2L8 8M8 2L2 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          </div>
+          </button>
         </div>
       </div>
 
-      {/* Site info */}
-      <div className="px-4 py-3 border-b border-white/5 flex items-center gap-3">
+      {/* Site info row */}
+      <div className="px-3 py-2.5 border-b border-white/[0.06] flex items-center gap-2.5">
         <img
           src={site.favicon}
           alt=""
-          className="w-5 h-5 rounded"
+          className="w-4 h-4 rounded-sm"
           onError={(e) => {
             e.currentTarget.style.display = 'none'
           }}
         />
-        <span className="text-sm font-medium">{site.name}</span>
-        <a
-          href={site.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="ml-auto text-muted hover:text-fg transition-colors"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M5.5 2.5H3.5C2.94772 2.5 2.5 2.94772 2.5 3.5V10.5C2.5 11.0523 2.94772 11.5 3.5 11.5H10.5C11.0523 11.5 11.5 11.0523 11.5 10.5V8.5" stroke="currentColor" strokeLinecap="round"/>
-            <path d="M8.5 2.5H11.5V5.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M11.5 2.5L6.5 7.5" stroke="currentColor" strokeLinecap="round"/>
-          </svg>
-        </a>
+        <span className="text-sm text-fg flex-1 truncate">{site.name}</span>
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-0.5">
+          {/* Refresh */}
+          <button
+            onClick={onRefresh}
+            className="w-7 h-7 rounded flex items-center justify-center text-muted hover:text-fg hover:bg-white/5 transition-colors"
+            title="Refresh"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M2.5 7C2.5 4.51472 4.51472 2.5 7 2.5C8.63262 2.5 10.0648 3.36399 10.8469 4.65M11.5 7C11.5 9.48528 9.48528 11.5 7 11.5C5.36738 11.5 3.93519 10.636 3.15313 9.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <path d="M10.5 2V5H7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M3.5 12V9H6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          {/* Bookmark */}
+          <button className="w-7 h-7 rounded flex items-center justify-center text-muted hover:text-fg hover:bg-white/5 transition-colors" title="Bookmark">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M3.5 2.5H10.5V12L7 9.5L3.5 12V2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          {/* Inspect/Edit */}
+          <button className="w-7 h-7 rounded flex items-center justify-center text-muted hover:text-fg hover:bg-white/5 transition-colors" title="Inspect">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M4 10L8 6M8 6L10 4M8 6L6 4M8 6L10 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Panel content */}
-      <div className="p-4 space-y-6 max-h-[400px] overflow-y-auto">
+      <div className="flex-1 overflow-y-auto">
         {/* Colors */}
-        <section>
-          <h3 className="text-[10px] font-medium uppercase tracking-widest text-muted mb-3">
+        <section className="px-3 pt-4 pb-3">
+          <h3 className="text-[11px] font-normal text-muted mb-3">
             Colors
           </h3>
           <ColorSwatches colors={site.colors} />
         </section>
 
+        {/* Divider */}
+        <div className="mx-3 border-b border-white/[0.06]" />
+
         {/* Typography */}
-        <section>
-          <h3 className="text-[10px] font-medium uppercase tracking-widest text-muted mb-3">
+        <section className="px-3 pt-4 pb-3">
+          <h3 className="text-[11px] font-normal text-muted mb-3">
             Typography
           </h3>
           <TypographyPreview fonts={site.typography} />
         </section>
 
+        {/* Divider */}
+        <div className="mx-3 border-b border-white/[0.06]" />
+
         {/* Tech */}
-        <section>
-          <h3 className="text-[10px] font-medium uppercase tracking-widest text-muted mb-3">
-            Tech <span className="text-fg/50 ml-1">{site.tech.length}</span>
+        <section className="px-3 pt-4 pb-4">
+          <h3 className="text-[11px] font-normal text-muted mb-3">
+            Tech <span className="text-fg/40 ml-1">{site.tech.length}</span>
           </h3>
           <TechGrid tech={site.tech} />
         </section>

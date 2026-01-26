@@ -13,8 +13,13 @@ function App() {
   const [activeIndex, setActiveIndex] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const activeSite = sites[activeIndex]
+
+  const handleRefresh = () => {
+    setRefreshKey((k) => k + 1)
+  }
 
   const nextSite = useCallback(() => {
     setActiveIndex((prev) => (prev + 1) % sites.length)
@@ -78,7 +83,11 @@ function App() {
 
             {/* Tracer Panel */}
             <AnimatePresence mode="wait">
-              <TracerPanel key={activeSite.id} site={activeSite} />
+              <TracerPanel
+                key={`${activeSite.id}-${refreshKey}`}
+                site={activeSite}
+                onRefresh={handleRefresh}
+              />
             </AnimatePresence>
           </div>
         </div>
