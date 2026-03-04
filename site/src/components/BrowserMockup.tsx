@@ -22,7 +22,7 @@ export function BrowserMockup({ sites, activeIndex, progress, onSelect }: Browse
       <CursorBubble visible={isHovered} />
 
       {/* Chrome tab bar */}
-      <div className="flex items-end gap-0 px-2 pt-2 bg-[#202124]">
+      <div className="flex items-end gap-0 px-2 pt-2">
         {sites.map((site, index) => {
           const isActive = index === activeIndex
           return (
@@ -70,7 +70,7 @@ export function BrowserMockup({ sites, activeIndex, progress, onSelect }: Browse
       </div>
 
       {/* URL bar */}
-      <div className="flex items-center gap-2 px-2 py-1.5 bg-[#1a1d21]">
+      <div className="flex items-center gap-2 px-2 py-1.5">
         {/* Nav buttons */}
         <div className="flex items-center">
           <button className="w-6 h-6 rounded flex items-center justify-center text-muted/40">
@@ -101,7 +101,7 @@ export function BrowserMockup({ sites, activeIndex, progress, onSelect }: Browse
       </div>
 
       {/* Page content wireframe */}
-      <div className="flex-1 relative overflow-hidden bg-[#0d0f11]">
+      <div className="flex-1 relative overflow-hidden bg-[#0d0f11] rounded-lg">
         <motion.div
           key={sites[activeIndex].id}
           initial={{ opacity: 0 }}

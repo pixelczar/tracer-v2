@@ -54,7 +54,7 @@ function App() {
   return (
     <div className="min-h-screen bg-bg text-fg">
       {/* Hero */}
-      <header className="pb-8 px-6 pt-6 md:pb-12">
+      <header className="pb-8 px-6 pt-6 md:pb-12 mb-32 opacity-10">
         <div className="mx-auto">
           <Logo />
         </div>
@@ -74,7 +74,7 @@ function App() {
               href={CHROME_STORE_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-3 px-5 py-2.5 bg-accent text-black text-sm font-semibold rounded-lg hover:scale-[1.02] hover:shadow-[0_8px_30px_rgba(234,255,0,0.25)] active:scale-100 transition-all duration-200 flex-shrink-0"
+              className="inline-flex items-center gap-3 px-5 py-2.5 bg-accent text-black text-sm font-semibold rounded-lg active:scale-100 transition-all duration-200 flex-shrink-0 hover:opacity-80"
             >
               <ChromeIcon />
               Add to Chrome — Free
@@ -83,7 +83,7 @@ function App() {
 
           {/* Browser + Side Panel (connected like Chrome) */}
           <div
-            className="flex rounded-xl overflow-hidden border border-white/10 bg-[#1a1d21] shadow-2xl shadow-black/50"
+            className="flex rounded-xl overflow-hidden border border-white/10 bg-[#23282d] shadow-2xl shadow-black/50"
             onMouseEnter={() => setIsPaused(true)}
             onMouseLeave={() => setIsPaused(false)}
           >
@@ -98,7 +98,7 @@ function App() {
             </div>
 
             {/* Side Panel (Tracer) */}
-            <div className="w-[320px] flex-shrink-0 border-l border-white/10 hidden lg:block">
+            <div className="w-[320px] flex-shrink-0 hidden lg:block">
               <AnimatePresence mode="wait">
                 <TracerPanel
                   key={`${activeSite.id}-${refreshKey}`}

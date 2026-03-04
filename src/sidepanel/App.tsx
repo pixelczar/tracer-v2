@@ -569,7 +569,7 @@ export default function App() {
                 onMouseEnter={() => setIsHovering(true)}
                 onMouseLeave={() => setIsHovering(false)}
             >
-                <div className="w-full max-w-96 mx-auto flex flex-col min-h-screen scrollbar-gutter-stable">
+                <div className="w-full mx-auto flex flex-col min-h-screen scrollbar-gutter-stable">
                     <header 
                         className="sticky top-0 z-10 flex items-center justify-between px-3 pt-3 pb-2 bg-bg"
                         style={{

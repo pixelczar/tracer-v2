@@ -5,6 +5,7 @@ import { ColorSwatches } from './ColorSwatches'
 import { TypographyPreview } from './TypographyPreview'
 import { TechGrid } from './TechGrid'
 import { ScrambleText } from './ScrambleText'
+import tracerFavicon from '../../../src/assets/icons/favicon_256.png'
 
 interface TracerPanelProps {
   site: SiteData
@@ -49,16 +50,13 @@ export function TracerPanel({ site, onRefresh, embedded }: TracerPanelProps) {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className={`bg-[#1a1d21] flex flex-col h-full ${embedded ? '' : 'max-w-[360px] border border-white/[0.08] rounded-lg overflow-hidden shadow-2xl shadow-black/50'}`}
+      className={` flex flex-col h-full ${embedded ? '' : 'max-w-[360px] border border-white/[0.08] rounded-lg overflow-hidden shadow-2xl shadow-black/50'}`}
     >
       {/* Panel header - "// Tracer" with simple slashes */}
-      <div className="flex items-center justify-between px-3 py-2 bg-[#15181b]">
+      <div className="flex items-center justify-between px-2 py-1 mt-2">
         <div className="flex items-center gap-2">
           {/* Simple slashes icon like real Tracer */}
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-accent">
-            <path d="M7 20L12 4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-            <path d="M12 20L17 4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-          </svg>
+          <img src={tracerFavicon} alt="Tracer" width="14" height="14" className="rounded-sm" />
           <span className="text-sm font-medium text-fg">Tracer</span>
         </div>
         <div className="flex items-center gap-1">
@@ -78,7 +76,7 @@ export function TracerPanel({ site, onRefresh, embedded }: TracerPanelProps) {
       </div>
 
       {/* Inset content area like Chrome side panel */}
-      <div className="flex-1 overflow-hidden bg-[#121417] m-1 rounded-lg flex flex-col">
+      <div className="flex-1 overflow-hidden bg-[#121417] m-2 rounded-lg flex flex-col">
         {/* Site info row */}
         <div className="px-3 py-2.5 flex items-center gap-2">
           <img

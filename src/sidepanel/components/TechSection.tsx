@@ -55,7 +55,7 @@ export function TechSection({ tech }: Props) {
     );
 
     return (
-        <div className="tech-container">
+        <div className="w-full overflow-hidden">
             <motion.div
                 initial="hidden"
                 animate="show"
@@ -67,7 +67,7 @@ export function TechSection({ tech }: Props) {
                         }
                     }
                 }}
-                className="tech-grid overflow-hidden"
+                className="grid grid-cols-2 gap-0 w-full overflow-hidden"
             >
                 {allSortedTech.map((t) => (
                     <motion.div
@@ -77,6 +77,7 @@ export function TechSection({ tech }: Props) {
                             show: { opacity: 1, y: 0 }
                         }}
                         transition={{ duration: 0.6, ease: sexyEase }}
+                        className="min-w-0 overflow-hidden"
                     >
                         <TechItem tech={t} />
                     </motion.div>
