@@ -7,6 +7,25 @@
   --color-faint: #27313a;
   --color-subtle: #111111;
   --color-accent: #eaff00;
+  --color-line: rgba(255, 255, 255, 0.06);
+  --font-display: 'Anero', sans-serif;
+  --font-display-outline: 'Anero Outline', sans-serif;
+}
+
+@font-face {
+  font-family: 'Anero';
+  src: url('./assets/fonts/Anero-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Anero Outline';
+  src: url('./assets/fonts/AneroOutline-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
@@ -59,6 +78,21 @@ body {
   box-sizing: border-box;
 }
 
+/* Film grain */
+@keyframes grain {
+  0%, 100% { transform: translate(0, 0) }
+  10% { transform: translate(-5%, -10%) }
+  30% { transform: translate(3%, -15%) }
+  50% { transform: translate(12%, 9%) }
+  70% { transform: translate(9%, 4%) }
+  90% { transform: translate(-1%, 7%) }
+}
+
+.animate-grain {
+  animation: grain 8s steps(10) infinite;
+}
+
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

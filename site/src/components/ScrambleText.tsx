@@ -1,40 +1,56 @@
-import { useEffect, useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
-interface ScrambleTextProps {
+const SCRAMBLE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&'
+
+export function ScrambleText({
+  text,
+  className,
+  delay = 0,
+}: {
   text: string
-  duration?: number
-  trigger?: boolean
-}
-
-export function ScrambleText({ text, duration = 300, trigger = true }: ScrambleTextProps) {
+  className?: string
+  delay?: number
+}) {
   const [display, setDisplay] = useState(text)
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+'
+  const [hasAnimated, setHasAnimated] = useState(false)
 
-  useEffect(() => {
-    if (!trigger) {
-      setDisplay(text)
-      return
-    }
+  const scramble = useCallback(() => {
+    const chars = text.split('')
+    const iterations = 6
+    let frame = 0
+    const totalFrames = chars.length * iterations
 
-    let i = 0
-    const len = text.length * 2
-    const int = duration / len
     const interval = setInterval(() => {
       setDisplay(
-        text
-          .split('')
-          .map((c, idx) =>
-            idx < i / 2 ? text[idx] : c === ' ' ? ' ' : chars[Math.floor(Math.random() * chars.length)]
-          )
+        chars
+          .map((char, i) => {
+            if (char === ' ') return ' '
+            if (frame / iterations > i) return char
+            return SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)]
+          })
           .join('')
       )
-      if (++i >= len) {
+      frame++
+      if (frame > totalFrames) {
         clearInterval(interval)
         setDisplay(text)
       }
-    }, int)
-    return () => clearInterval(interval)
-  }, [text, duration, trigger])
+    }, 30)
 
-  return <span>{display}</span>
+    return () => clearInterval(interval)
+  }, [text])
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      scramble()
+      setHasAnimated(true)
+    }, delay * 1000)
+    return () => clearTimeout(timeout)
+  }, [delay, scramble])
+
+  return (
+    <span className={className} onMouseEnter={hasAnimated ? scramble : undefined}>
+      {display}
+    </span>
+  )
 }
