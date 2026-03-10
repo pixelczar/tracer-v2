@@ -67,7 +67,7 @@ export function TechSection({ tech }: Props) {
                         }
                     }
                 }}
-                className="grid grid-cols-2 gap-0 w-full overflow-hidden"
+                className="grid grid-cols-2 gap-x-3 w-full overflow-hidden"
             >
                 {allSortedTech.map((t) => (
                     <motion.div

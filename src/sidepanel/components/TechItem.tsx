@@ -16,7 +16,7 @@ export function TechItem({ tech }: Props) {
 
   return (
     <div className="flex flex-col py-1.5 border-b border-faint last:border-0 min-w-0 max-w-full w-full overflow-hidden group">
-      <div className="flex items-center gap-2 min-w-0 w-full">
+      <div className="flex items-center gap-0 min-w-0 w-full">
         {/* Icon */}
         <div className="flex-shrink-0 w-3 h-3 flex items-center justify-center">
           {iconUrl && !iconError ? (
@@ -63,7 +63,7 @@ export function TechItem({ tech }: Props) {
         )}
 
         {/* Category label */}
-        <span className="ml-auto text-2xs font-mono text-muted uppercase flex-shrink-0">
+        <span className="ml-auto text-2xs font-mono text-muted flex-shrink-0">
           {meta?.label || tech.category}
         </span>
       </div>
