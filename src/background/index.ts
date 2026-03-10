@@ -42,12 +42,10 @@ async function updateExtensionIcon(theme: 'light' | 'dark') {
             // Since Chrome's dark mode typically means dark toolbar, we need white icons
             // The favicon.png files are likely white, and icon-light-*.png might be incorrectly named
             
-            // For dark Chrome toolbar (dark mode Chrome) → use white icons
-            // favicon_256.png is white (works in extension management and sidepanel)
-            iconPaths[16] = 'src/assets/icons/favicon_256.png';
-            iconPaths[32] = 'src/assets/icons/favicon_256.png';
-            iconPaths[48] = 'src/assets/icons/favicon_256.png';
-            iconPaths[128] = 'src/assets/icons/favicon_256.png';
+            iconPaths[16] = 'src/assets/icons/icon-light-16.png';
+            iconPaths[32] = 'src/assets/icons/icon-light-32.png';
+            iconPaths[48] = 'src/assets/icons/icon-light-48.png';
+            iconPaths[128] = 'src/assets/icons/icon-light-128.png';
             
             console.log(`[Tracer] Updating extension icon for theme: ${theme}`);
             console.log(`[Tracer] Icon paths:`, JSON.stringify(iconPaths, null, 2));
@@ -63,10 +61,10 @@ async function updateExtensionIcon(theme: 'light' | 'dark') {
                     // This ensures the extension always has a valid icon
                     console.warn('[Tracer] Custom icons failed, using default icons as fallback');
                     const fallbackPaths = {
-                        16: 'src/assets/icons/favicon_256.png',
-                        32: 'src/assets/icons/favicon_256.png',
-                        48: 'src/assets/icons/favicon_256.png',
-                        128: 'src/assets/icons/favicon_256.png'
+                        16: 'src/assets/icons/icon-light-16.png',
+                        32: 'src/assets/icons/icon-light-32.png',
+                        48: 'src/assets/icons/icon-light-48.png',
+                        128: 'src/assets/icons/icon-light-128.png'
                     };
                     chrome.action.setIcon({ path: fallbackPaths }, () => {
                         if (chrome.runtime.lastError) {
