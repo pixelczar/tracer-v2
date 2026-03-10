@@ -18,7 +18,7 @@ export function TechItem({ tech }: Props) {
     <div className="flex flex-col py-1.5 border-b border-faint last:border-0 min-w-0 max-w-full w-full overflow-hidden group">
       <div className="flex items-center gap-0 min-w-0 w-full">
         {/* Icon */}
-        <div className="flex-shrink-0 w-3 h-3 flex items-center justify-center">
+        <div className="flex-shrink-0 w-3 h-3 flex items-center justify-center mr-1">
           {iconUrl && !iconError ? (
             <img 
               src={iconUrl} 
@@ -28,7 +28,7 @@ export function TechItem({ tech }: Props) {
               onError={() => setIconError(true)}
             />
           ) : (
-            <div className="w-3 h-3 rounded-sm bg-faint dark:bg-muted flex items-center justify-center">
+            <div className="w-3 h-3 rounded-sm bg-faint dark:bg-muted flex items-center justify-center mr-1">
               <img 
                 src={placeholderIcon} 
                 alt="" 
